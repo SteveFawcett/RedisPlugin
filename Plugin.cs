@@ -28,7 +28,6 @@ namespace RedisPlugin
         private static System.Timers.Timer? aTimer = null;
         #endregion
 
-
         #region IPLugin Implementation
         public override string Stanza => "Redis";
 
