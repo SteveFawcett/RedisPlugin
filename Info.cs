@@ -1,5 +1,5 @@
 ﻿using System.Windows.Forms;
-using PluginBase;
+using BroadcastPluginSDK;
 
 namespace RedisPlugin
 {

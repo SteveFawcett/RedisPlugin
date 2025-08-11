@@ -1,11 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
-using PluginBase;
-using System;
+﻿using BroadcastPluginSDK;
 using System.Diagnostics;
-using System.Drawing;
 using System.Reflection;
-using System.Security.Policy;
-using System.Windows.Forms;
 
 namespace RedisPlugin
 {
@@ -33,9 +28,8 @@ namespace RedisPlugin
 
         public Plugin () :base()
         {
-            _infoPage = new Info();
 
-            ((Info)_infoPage).Url = $"redis://{this.Server}:{this.Port}";
+            // ((Info)_infoPage).Url = $"redis://{this.Server}:{this.Port}";
             Name = "REDIS Plugin";
             Description = "Plugin for reading and writing to a REDIS Cache";
             Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
