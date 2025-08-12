@@ -7,10 +7,10 @@ namespace RedisPlugin
     public class Plugin : BroadcastPlugin
     {
         #region Constants
-        const int DEFAULT_SAMPLE_RATE = 2000;
-        const int DEFAULT_SCAN_RATE = 5000; // Default reconnection rate in milliseconds
-        const int DEFAULT_PORT = 6379;
-        const string DEFAULT_SERVER = "localhost";
+        private const int DEFAULT_SAMPLE_RATE = 2000;
+        private const int DEFAULT_SCAN_RATE = 5000; // Default reconnection rate in milliseconds
+        private const int DEFAULT_PORT = 6379;
+        private const string DEFAULT_SERVER = "localhost";
         #endregion
 
         #region Private fields
@@ -26,7 +26,7 @@ namespace RedisPlugin
         #region IPLugin Implementation
         public override string Stanza => "Redis";
 
-        public Plugin () :base()
+        public Plugin() : base()
         {
 
             // ((Info)_infoPage).Url = $"redis://{this.Server}:{this.Port}";
@@ -41,8 +41,8 @@ namespace RedisPlugin
             if (Configuration is not null)
             {
                 SamplingRate = int.Parse(base.Configuration["sample"] ?? DEFAULT_SAMPLE_RATE.ToString());
-                Server = this.Configuration["server"] ?? DEFAULT_SERVER ;
-                Port = int.Parse(this.Configuration["port"] ?? DEFAULT_PORT.ToString());
+                Server = Configuration["server"] ?? DEFAULT_SERVER;
+                Port = int.Parse(Configuration["port"] ?? DEFAULT_PORT.ToString());
             }
 
             Debug.WriteLine($"Starting {Name} plugin with sampling rate: {SamplingRate} ms");
@@ -54,9 +54,9 @@ namespace RedisPlugin
         #region Public Methods
         public void Connect()
         {
-          //  if (_infoPage is not null) _infoPage.Url = $"redis://{this.Server}:{this.Port}";
+            //  if (_infoPage is not null) _infoPage.Url = $"redis://{this.Server}:{this.Port}";
             _connection?.Dispose();
-            _connection = new Connection(this.Server, this.Port);
+            _connection = new Connection(Server, Port);
         }
 
         #endregion
@@ -64,12 +64,12 @@ namespace RedisPlugin
         #region Private Methods
         private void SetTimer(bool connected)
         {
-            if ( started == false)
+            if (started == false)
             {
                 return;
             }
             int rate = SamplingRate;
-            
+
             if (connected == false && aTimer?.Interval != DEFAULT_SCAN_RATE)
             {
                 rate = DEFAULT_SCAN_RATE; // Default reconnection rate
@@ -112,15 +112,8 @@ namespace RedisPlugin
 
             SetTimer(_connection?.IsConnected() ?? false);
 
-            if (_connection?.IsConnected() == true)
-            {
-                Icon = Properties.Resources.green;
-            }
-            else
-            {
-                Icon = Properties.Resources.red;
-            }
+            Icon = _connection?.IsConnected() == true ? Properties.Resources.green : Properties.Resources.red;
         }
     }
     #endregion
-}   
+}

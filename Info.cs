@@ -1,5 +1,4 @@
-﻿using System.Windows.Forms;
-using BroadcastPluginSDK;
+﻿using BroadcastPluginSDK;
 
 namespace RedisPlugin
 {
