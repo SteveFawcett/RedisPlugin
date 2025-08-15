@@ -20,7 +20,9 @@ namespace RedisPlugin
         private int SamplingRate { get; set; } = DEFAULT_SAMPLE_RATE; // Default sampling rate
         private int Port { get; set; } = DEFAULT_PORT;
         private string Server { get; set; } = DEFAULT_SERVER;
-        private static System.Timers.Timer? aTimer = null;
+
+        private readonly object _timerLock = new();
+        private System.Timers.Timer? aTimer = null;
         #endregion
 
         #region IPLugin Implementation
@@ -70,6 +72,7 @@ namespace RedisPlugin
             {
                 return;
             }
+
             int rate = SamplingRate;
 
             if (connected == false && aTimer?.Interval != DEFAULT_SCAN_RATE)
@@ -78,20 +81,20 @@ namespace RedisPlugin
                 Debug.WriteLine($"Setting timer with interval: {rate} ms");
             }
 
-            if (aTimer != null)
+            lock (_timerLock) // Lock to prevent race conditions
             {
-                // If the timer is already running, stop it.
-                aTimer.Stop();
-                aTimer.Dispose();
-            }
+                if (aTimer != null)
+                {
+                    aTimer.Stop();
+                    aTimer.Dispose();
+                    aTimer = null;
+                }
 
-            // Create a timer with a two second interval.
-            aTimer = new System.Timers.Timer(rate);
-            // Hook up the Elapsed event for the timer. 
-            // This event will be raised when the timer interval elapses.
-            aTimer.Elapsed += OnTimedEvent;
-            aTimer.AutoReset = true;
-            aTimer.Enabled = true;
+                aTimer = new System.Timers.Timer(rate);
+                aTimer.Elapsed += OnTimedEvent;
+                aTimer.AutoReset = true;
+                aTimer.Enabled = true;
+            }
         }
         #endregion
         #region Event Handlers
