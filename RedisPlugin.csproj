@@ -31,9 +31,16 @@
 	</Target>
 	
   <ItemGroup>
-    <PackageReference Include="BroadcastPluginSDK" Version="1.0.4" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.58" />
   </ItemGroup>
+
+	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
+		<ProjectReference Include="..\BroadcastPluginSDK\BroadcastPluginSDK.csproj" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(Configuration)' == 'Release'">
+		<PackageReference Include="BroadcastPluginSDK" Version="1.0.5" />
+	</ItemGroup>
 
 	<ItemGroup>
 	  <Compile Update="Properties\Resources.Designer.cs">

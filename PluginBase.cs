@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace RedisPlugin
 {
-    public class PluginBase : BroadcastPlugin
+    public class PluginBase : BroadcastPluginBase
     {
         #region Constants
         private const int DEFAULT_SAMPLE_RATE = 2000;
@@ -36,7 +36,7 @@ namespace RedisPlugin
             Icon = Properties.Resources.red;
         }
 
-        public override void Start()
+        public override string Start()
         {
             if (Configuration is not null)
             {
@@ -48,6 +48,8 @@ namespace RedisPlugin
             Debug.WriteLine($"Starting {Name} plugin with sampling rate: {SamplingRate} ms");
             started = true;
             SetTimer(false);
+
+            return $"Starting {Name} plugin with sampling rate: {SamplingRate} ms";
         }
         #endregion
 
