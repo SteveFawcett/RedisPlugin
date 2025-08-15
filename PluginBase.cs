@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace RedisPlugin
 {
-    public class Plugin : BroadcastPlugin
+    public class PluginBase : BroadcastPlugin
     {
         #region Constants
         private const int DEFAULT_SAMPLE_RATE = 2000;
@@ -26,12 +26,12 @@ namespace RedisPlugin
         #region IPLugin Implementation
         public override string Stanza => "Redis";
 
-        public Plugin() : base()
+        public PluginBase() : base()
         {
 
             // ((Info)_infoPage).Url = $"redis://{this.Server}:{this.Port}";
-            Name = "REDIS Plugin";
-            Description = "Plugin for reading and writing to a REDIS Cache";
+            Name = "REDIS PluginBase";
+            Description = "PluginBase for reading and writing to a REDIS Cache";
             Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
             Icon = Properties.Resources.red;
         }
