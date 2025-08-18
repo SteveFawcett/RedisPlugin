@@ -1,4 +1,5 @@
 ﻿using BroadcastPluginSDK;
+using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
 using System.Reflection;
 
@@ -26,33 +27,30 @@ namespace RedisPlugin
         #endregion
 
         #region IPLugin Implementation
-        public override string Stanza => "Redis";
 
-        public PluginBase() : base()
+        public PluginBase(IConfiguration configuration) : base(
+            configuration, null,
+            Properties.Resources.red,
+            "Redis",
+            "REDIS",
+            "REDIS Cache plugin.")
         {
-
-            // ((Info)_infoPage).Url = $"redis://{this.Server}:{this.Port}";
-            Name = "REDIS PluginBase";
-            Description = "PluginBase for reading and writing to a REDIS Cache";
-            Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
-            Icon = Properties.Resources.red;
         }
 
-        public override string Start()
-        {
-            if (Configuration is not null)
-            {
-                SamplingRate = int.Parse(base.Configuration["sample"] ?? DEFAULT_SAMPLE_RATE.ToString());
-                Server = Configuration["server"] ?? DEFAULT_SERVER;
-                Port = int.Parse(Configuration["port"] ?? DEFAULT_PORT.ToString());
-            }
+        //  public override string Start()
+        //  {
+        ////
+        ///      SamplingRate = int.Parse(base.Configuration["sample"] ?? DEFAULT_SAMPLE_RATE.ToString());
+        //      Server = Configuration["server"] ?? DEFAULT_SERVER;
+        //      Port = int.Parse(Configuration["port"] ?? DEFAULT_PORT.ToString());
 
-            Debug.WriteLine($"Starting {Name} plugin with sampling rate: {SamplingRate} ms");
-            started = true;
-            SetTimer(false);
 
-            return $"Starting {Name} plugin with sampling rate: {SamplingRate} ms";
-        }
+        //       Debug.WriteLine($"Starting {Name} plugin with sampling rate: {SamplingRate} ms");
+        //      started = true;
+        //       SetTimer(false);
+
+        //       return $"Starting {Name} plugin with sampling rate: {SamplingRate} ms";
+        //  }
         #endregion
 
         #region Public Methods
