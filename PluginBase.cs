@@ -1,128 +1,86 @@
-﻿using System.Diagnostics;
-using BroadcastPluginSDK.abstracts;
+﻿using BroadcastPluginSDK.abstracts;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using RedisPlugin.Properties;
-using Timer = System.Timers.Timer;
+using System.ComponentModel.DataAnnotations;
+using System.Net.Security;
+using BroadcastPluginSDK.Interfaces;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace RedisPlugin;
 
-public class PluginBase : BroadcastPluginBase
+public class PluginBase : BroadcastCacheBase
 {
-    #region Private Methods
+    private static readonly CachePage s_infoPage = new();
+    private static readonly Image s_icon = Resources.red;
+    private static readonly string Stanza = "Redis";
+    private readonly ILogger<IPlugin> _logger;
+    private int Port = 6379; // Default Redis port
+    private string Server = "localhost"; // Default Redis server
+    private Connection connection;
 
-    private void SetTimer(bool connected)
+    public PluginBase(IConfiguration configuration, ILogger<IPlugin> logger) : base(configuration, s_infoPage, s_icon, "Redis Cache", Stanza,
+        "REDIS Cache")
     {
-        if (started == false) return;
+        _logger = logger;
+        Port = configuration.GetSection(Stanza).GetValue<int>("Port", 6379);
+        Server = configuration.GetSection(Stanza).GetValue<string>("Server", "localhost");
+        
+        s_infoPage.URL = $"redis://{Server}:{Port}";
+        _logger.LogInformation( s_infoPage.URL );
+        connection = new Connection(_logger , Server, Port);
+    }
 
-        var rate = SamplingRate;
-
-        if (connected == false && aTimer?.Interval != DEFAULT_SCAN_RATE)
+    public override void Clear()
+    {
+        if (connection.Connected )
         {
-            rate = DEFAULT_SCAN_RATE; // Default reconnection rate
-            Debug.WriteLine($"Setting timer with interval: {rate} ms");
-        }
-
-        lock (_timerLock) // Lock to prevent race conditions
-        {
-            if (aTimer != null)
-            {
-                aTimer.Stop();
-                aTimer.Dispose();
-                aTimer = null;
-            }
-
-            aTimer = new Timer(rate);
-            aTimer.Elapsed += OnTimedEvent;
-            aTimer.AutoReset = true;
-            aTimer.Enabled = true;
+            _logger.LogError("Connected to Redis database.");
         }
     }
 
-    #endregion
-
-    #region Constants
-
-    private const int DEFAULT_SAMPLE_RATE = 2000;
-    private const int DEFAULT_SCAN_RATE = 5000; // Default reconnection rate in milliseconds
-    private const int DEFAULT_PORT = 6379;
-    private const string DEFAULT_SERVER = "localhost";
-
-    #endregion
-
-    #region Private fields
-
-    private readonly bool started = false;
-    private Connection? _connection;
-    private int SamplingRate { get; } = DEFAULT_SAMPLE_RATE; // Default sampling rate
-    private int Port { get; } = DEFAULT_PORT;
-    private string Server { get; } = DEFAULT_SERVER;
-
-    private readonly object _timerLock = new();
-    private Timer? aTimer;
-
-    #endregion
-
-    #region IPLugin Implementation
-
-    public PluginBase(IConfiguration configuration) : base(
-        configuration, null,
-        Resources.red,
-        "Redis",
-        "REDIS",
-        "REDIS Cache plugin.")
+    public override void Write(Dictionary<string, string> data)
     {
-    }
-
-    //  public override string Start()
-    //  {
-    ////
-    /// SamplingRate = int.Parse(base.Configuration["sample"] ?? DEFAULT_SAMPLE_RATE.ToString());
-    //      Server = Configuration["server"] ?? DEFAULT_SERVER;
-    //      Port = int.Parse(Configuration["port"] ?? DEFAULT_PORT.ToString());
-
-    //       Debug.WriteLine($"Starting {Name} plugin with sampling rate: {SamplingRate} ms");
-    //      started = true;
-    //       SetTimer(false);
-
-    //       return $"Starting {Name} plugin with sampling rate: {SamplingRate} ms";
-    //  }
-
-    #endregion
-
-    #region Public Methods
-
-    public void Connect()
-    {
-        //  if (_infoPage is not null) _infoPage.Url = $"redis://{this.Server}:{this.Port}";
-        _connection?.Dispose();
-        _connection = new Connection(Server, Port);
-    }
-
-    #endregion
-
-    #region Event Handlers
-
-    private void OnTimedEvent(object? source, EventArgs e)
-    {
-        // This method is called when the timer elapses.
-        // So when the timer ticks we will send some test data
-        if (_connection == null || _connection.IsConnected() == false)
+        if (connection.Connected)
         {
-            Debug.WriteLine($"Attempting connecting to Redis at {Server}:{Port}");
-            try
+            foreach (var kvp in data)
             {
-                Connect();
+                connection.Write(kvp.Key, kvp.Value);
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error with REDIS {typeof(SourceFilter)} connection: {ex.Message} ");
-            }
+            _logger.LogError("Connected to Redis database.");
         }
+        s_infoPage.Redraw( data );
+    }
 
-        SetTimer(_connection?.IsConnected() ?? false);
+    public override List<KeyValuePair<string, string>> CacheReader(List<string> values)
+    {
+        if (values.Count == 0) return Read().ToList();
 
-        Icon = _connection?.IsConnected() == true ? Resources.green : Resources.red;
+        return Read(values).ToList();
+    }
+
+    public IEnumerable<KeyValuePair<string, string>> Read(List<string> values)
+    {
+        foreach (var value in values) yield return ReadValue(value);
+    }
+
+    public IEnumerable<KeyValuePair<string, string>> Read()
+    {
+        if (connection.Connected)
+        {
+            _logger.LogError("Connected to Redis database.");
+        }
+        yield return new KeyValuePair<string, string>( "a", "b");
+    }
+
+    public KeyValuePair<string, string> ReadValue(string value)
+    {
+        if (connection.Connected)
+        {
+            var data = new KeyValuePair<string, string>(value, connection.Read(value) ?? string.Empty);
+            s_infoPage.Redraw( data );
+            return data;
+        }
+        return new KeyValuePair<string, string>(value, string.Empty);
     }
 }
-
-#endregion
