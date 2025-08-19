@@ -1,39 +1,43 @@
-﻿using BroadcastPluginSDK.abstracts;
+﻿using BroadcastPluginSDK;
+using BroadcastPluginSDK.abstracts;
+using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RedisPlugin.Properties;
 using System.ComponentModel.DataAnnotations;
 using System.Net.Security;
-using BroadcastPluginSDK.Interfaces;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace RedisPlugin;
 
 public class PluginBase : BroadcastCacheBase
 {
-    private static readonly CachePage s_infoPage = new();
-    private static readonly Image s_icon = Resources.red;
-    private static readonly string Stanza = "Redis";
-    private readonly ILogger<IPlugin> _logger;
-    private int Port = 6379; // Default Redis port
-    private string Server = "localhost"; // Default Redis server
-    private Connection connection;
+    private const string PluginName = "RedisPlugin";
+    private const string PluginDescription = "Redis Cache Plugin for Broadcast";
+    private const string Stanza = "Redis";
 
-    public PluginBase(IConfiguration configuration, ILogger<IPlugin> logger) : base(configuration, s_infoPage, s_icon, "Redis Cache", Stanza,
-        "REDIS Cache")
+    private static readonly Image s_icon = Resources.red;
+    private readonly ILogger<IPlugin> _logger;
+    private readonly Connection _connection;
+    private CachePage _infoPage;
+
+    public PluginBase(IConfiguration configuration, ILogger<IPlugin> logger) :
+        base(configuration, new CachePage(logger , "", 9999), s_icon, PluginName, Stanza,
+            PluginDescription)
     {
         _logger = logger;
-        Port = configuration.GetSection(Stanza).GetValue<int>("Port", 6379);
-        Server = configuration.GetSection(Stanza).GetValue<string>("Server", "localhost");
-        
-        s_infoPage.URL = $"redis://{Server}:{Port}";
-        _logger.LogInformation( s_infoPage.URL );
-        connection = new Connection(_logger , Server, Port);
+
+        int port = configuration.GetSection(Stanza).GetValue<int>("Port", 6379);
+        string server = configuration.GetSection(Stanza).GetValue<string>("Server", "localhost");
+
+        _infoPage = new CachePage(_logger , server, port);
+
+        _connection = new Connection(_logger , server, port);
     }
 
     public override void Clear()
     {
-        if (connection.Connected )
+        if (_connection.Connected )
         {
             _logger.LogError("Connected to Redis database.");
         }
@@ -41,15 +45,15 @@ public class PluginBase : BroadcastCacheBase
 
     public override void Write(Dictionary<string, string> data)
     {
-        if (connection.Connected)
+        if (_connection.Connected)
         {
             foreach (var kvp in data)
             {
-                connection.Write(kvp.Key, kvp.Value);
+                _connection.Write(kvp.Key, kvp.Value);
             }
             _logger.LogError("Connected to Redis database.");
         }
-        s_infoPage.Redraw( data );
+        _infoPage.Redraw( data );
     }
 
     public override List<KeyValuePair<string, string>> CacheReader(List<string> values)
@@ -66,7 +70,7 @@ public class PluginBase : BroadcastCacheBase
 
     public IEnumerable<KeyValuePair<string, string>> Read()
     {
-        if (connection.Connected)
+        if (_connection.Connected)
         {
             _logger.LogError("Connected to Redis database.");
         }
@@ -75,10 +79,10 @@ public class PluginBase : BroadcastCacheBase
 
     public KeyValuePair<string, string> ReadValue(string value)
     {
-        if (connection.Connected)
+        if (_connection.Connected)
         {
-            var data = new KeyValuePair<string, string>(value, connection.Read(value) ?? string.Empty);
-            s_infoPage.Redraw( data );
+            var data = new KeyValuePair<string, string>(value, _connection.Read(value) ?? string.Empty);
+            _infoPage.Redraw( data );
             return data;
         }
         return new KeyValuePair<string, string>(value, string.Empty);

@@ -1,5 +1,7 @@
-﻿using System.Net.Mime;
+﻿using BroadcastPluginSDK;
 using BroadcastPluginSDK.Interfaces;
+using Microsoft.Extensions.Logging;
+using System.Net.Mime;
 
 namespace RedisPlugin;
 
@@ -9,14 +11,20 @@ public partial class CachePage : UserControl, IInfoPage
     private Image? _icon;
     private string? _name;
     private string? _version;
+    private readonly ILogger<IPlugin> _logger;
 
     public string URL
     {
         get => textBox1.Text; set => textBox1.Text = value;
     }
-    public CachePage()
+    public CachePage( ILogger<IPlugin> logger , string server , int port)
     {
+        this._logger = logger;
         InitializeComponent();
+
+        URL = $"redis://{server}:{port}";
+        _logger.LogInformation(URL);
+
     }
 
     public Image? Icon
@@ -75,6 +83,8 @@ public partial class CachePage : UserControl, IInfoPage
         }
         else
         {
+            _logger.LogDebug( "{0} => {1}", kvp.Key, kvp.Value);
+           
             var item = new ListViewItem(kvp.Key)
             {
                 Name = kvp.Key
