@@ -48,7 +48,7 @@ public class PluginBase : BroadcastCacheBase
             {
                 _connection.Write(kvp.Key, kvp.Value);
             }
-            _logger.LogError("Connected to Redis database.");
+            _logger.LogInformation("Connected to Redis database.");
         }
         _infoPage.Redraw( data );
     }
