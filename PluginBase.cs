@@ -69,7 +69,7 @@ public class PluginBase : BroadcastCacheBase
     {
         if (_connection.Connected)
         {
-            _logger.LogError("Connected to Redis database.");
+            _logger.LogInformation("Connected to Redis database.");
         }
         yield return new KeyValuePair<string, string>( "a", "b");
     }
