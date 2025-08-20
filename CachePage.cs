@@ -2,7 +2,6 @@
 using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.Net.Mime;
-
 namespace RedisPlugin;
 
 public partial class CachePage : UserControl, IInfoPage
