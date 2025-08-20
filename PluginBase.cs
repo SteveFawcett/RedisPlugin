@@ -12,8 +12,6 @@ namespace RedisPlugin;
 
 public class PluginBase : BroadcastCacheBase
 {
-    private const string PluginName = "RedisPlugin";
-    private const string PluginDescription = "Redis Cache Plugin for Broadcast";
     private const string Stanza = "Redis";
 
     private static readonly Image s_icon = Resources.red;
@@ -22,8 +20,8 @@ public class PluginBase : BroadcastCacheBase
     private CachePage _infoPage;
 
     public PluginBase(IConfiguration configuration, ILogger<IPlugin> logger) :
-        base(configuration, new CachePage(logger , "", 9999), s_icon, PluginName, Stanza,
-            PluginDescription)
+        base(configuration, new CachePage(logger , "", 9999), s_icon, Stanza
+            )
     {
         _logger = logger;
 
