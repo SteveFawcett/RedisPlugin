@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging;
 using RedisPlugin.Properties;
 using System.ComponentModel.DataAnnotations;
 using System.Net.Security;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace RedisPlugin;
 
