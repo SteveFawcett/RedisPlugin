@@ -1,124 +1,97 @@
 ﻿using BroadcastPluginSDK;
-using System.Diagnostics;
-using System.Reflection;
+using BroadcastPluginSDK.abstracts;
+using BroadcastPluginSDK.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using RedisPlugin.Properties;
+using System.ComponentModel.DataAnnotations;
+using System.Net.Security;
 
-namespace RedisPlugin
+namespace RedisPlugin;
+
+public class PluginBase : BroadcastCacheBase
 {
-    public class PluginBase : BroadcastPluginBase
+    private const string Stanza = "Redis";
+
+    private static readonly Image s_icon = Resources.red;
+    private readonly ILogger<IPlugin> _logger;
+    private readonly Connection _connection;
+    private CachePage _infoPage;
+
+    public PluginBase(IConfiguration configuration, ILogger<IPlugin> logger) :
+        base(configuration, new CachePage(logger , "", 9999), s_icon, Stanza
+            )
     {
-        #region Constants
-        private const int DEFAULT_SAMPLE_RATE = 2000;
-        private const int DEFAULT_SCAN_RATE = 5000; // Default reconnection rate in milliseconds
-        private const int DEFAULT_PORT = 6379;
-        private const string DEFAULT_SERVER = "localhost";
-        #endregion
+        _logger = logger;
 
-        #region Private fields
+        int port = configuration.GetSection(Stanza).GetValue<int>("Port", 6379);
+        string server = configuration.GetSection(Stanza).GetValue<string>("Server", "localhost");
 
-        private bool started = false;
-        private Connection? _connection = null;
-        private int SamplingRate { get; set; } = DEFAULT_SAMPLE_RATE; // Default sampling rate
-        private int Port { get; set; } = DEFAULT_PORT;
-        private string Server { get; set; } = DEFAULT_SERVER;
+        _infoPage = new CachePage(_logger , server, port);
 
-        private readonly object _timerLock = new();
-        private System.Timers.Timer? aTimer = null;
-        #endregion
+        _connection = new Connection(_logger , server, port);
+    }
 
-        #region IPLugin Implementation
-        public override string Stanza => "Redis";
-
-        public PluginBase() : base()
+    public override void Clear()
+    {
+        if (_connection.Connected )
         {
-
-            // ((Info)_infoPage).Url = $"redis://{this.Server}:{this.Port}";
-            Name = "REDIS PluginBase";
-            Description = "PluginBase for reading and writing to a REDIS Cache";
-            Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
-            Icon = Properties.Resources.red;
-        }
-
-        public override string Start()
-        {
-            if (Configuration is not null)
-            {
-                SamplingRate = int.Parse(base.Configuration["sample"] ?? DEFAULT_SAMPLE_RATE.ToString());
-                Server = Configuration["server"] ?? DEFAULT_SERVER;
-                Port = int.Parse(Configuration["port"] ?? DEFAULT_PORT.ToString());
-            }
-
-            Debug.WriteLine($"Starting {Name} plugin with sampling rate: {SamplingRate} ms");
-            started = true;
-            SetTimer(false);
-
-            return $"Starting {Name} plugin with sampling rate: {SamplingRate} ms";
-        }
-        #endregion
-
-        #region Public Methods
-        public void Connect()
-        {
-            //  if (_infoPage is not null) _infoPage.Url = $"redis://{this.Server}:{this.Port}";
-            _connection?.Dispose();
-            _connection = new Connection(Server, Port);
-        }
-
-        #endregion
-
-        #region Private Methods
-        private void SetTimer(bool connected)
-        {
-            if (started == false)
-            {
-                return;
-            }
-
-            int rate = SamplingRate;
-
-            if (connected == false && aTimer?.Interval != DEFAULT_SCAN_RATE)
-            {
-                rate = DEFAULT_SCAN_RATE; // Default reconnection rate
-                Debug.WriteLine($"Setting timer with interval: {rate} ms");
-            }
-
-            lock (_timerLock) // Lock to prevent race conditions
-            {
-                if (aTimer != null)
-                {
-                    aTimer.Stop();
-                    aTimer.Dispose();
-                    aTimer = null;
-                }
-
-                aTimer = new System.Timers.Timer(rate);
-                aTimer.Elapsed += OnTimedEvent;
-                aTimer.AutoReset = true;
-                aTimer.Enabled = true;
-            }
-        }
-        #endregion
-        #region Event Handlers
-        private void OnTimedEvent(object? source, EventArgs e)
-        {
-            // This method is called when the timer elapses.
-            // So when the timer ticks we will send some test data
-            if (_connection == null || _connection.IsConnected() == false)
-            {
-                Debug.WriteLine($"Attempting connecting to Redis at {Server}:{Port}");
-                try
-                {
-                    Connect();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error with REDIS {typeof(SourceFilter)} connection: {ex.Message} ");
-                }
-            }
-
-            SetTimer(_connection?.IsConnected() ?? false);
-
-            Icon = _connection?.IsConnected() == true ? Properties.Resources.green : Properties.Resources.red;
+            _logger.LogInformation("Connected to Redis database.");
         }
     }
-    #endregion
+
+    public override void Write(Dictionary<string, string> data)
+    {
+        if (_connection.Connected)
+        {
+            foreach (var kvp in data)
+            {
+                _connection.Write(kvp.Key, kvp.Value);
+            }
+            _logger.LogInformation("Connected to Redis database.");
+        }
+        _infoPage.Redraw( data );
+    }
+
+    public override List<KeyValuePair<string, string>> CacheReader(List<string> values)
+    {
+        if (values.Count == 0) return Read().ToList();
+
+        return Read(values).ToList();
+    }
+
+    public IEnumerable<KeyValuePair<string, string>> Read(List<string> values)
+    {
+        foreach (var value in values) yield return ReadValue(value);
+    }
+
+    public IEnumerable<KeyValuePair<string, string>> Read()
+    {
+        if (_connection.Connected)
+        {
+            _logger.LogInformation("Connected to Redis database.");
+        }
+        // TODO: Assuming _connection.GetAllKeys() returns IEnumerable<string> of all keys in Redis
+        // foreach (var key in _c)
+        // {
+        //     var value = _connection.Read(key) ?? string.Empty;
+        //     var data = new KeyValuePair<string, string>(key, value);
+        //     _infoPage.Redraw(data);
+        //     yield return data;
+        // }
+        yield break;
+     }
+        // If not connected, yield nothing (empty sequence)
+   
+
+    public KeyValuePair<string, string> ReadValue(string value)
+    {
+        if (_connection.Connected)
+        {
+            var data = new KeyValuePair<string, string>(value, _connection.Read(value) ?? string.Empty);
+            _infoPage.Redraw( data );
+            return data;
+        }
+        return new KeyValuePair<string, string>(value, string.Empty);
+    }
 }

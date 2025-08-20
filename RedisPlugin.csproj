@@ -8,8 +8,8 @@
 		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 		<PackageDir Condition="'$(PackageDir)' == ''">$([System.IO.Path]::Combine($(OutputPath),'package'))/</PackageDir>
 		<OutputDirectory>.</OutputDirectory>
-		<Version>$(Version)</Version>
-		<PackageFileName>$(AssemblyName)-v$(Version).zip</PackageFileName>
+		<AssemblyVersion>0.1.2</AssemblyVersion>
+		<PackageFileName>$(AssemblyName)-v$(AssemblyVersion).zip</PackageFileName>
 		<PackagePath>$(OutputDirectory)\$(PackageFileName)</PackagePath>
 		<SupportedOSPlatformVersion>8.0</SupportedOSPlatformVersion>
 		<RepositoryType>git</RepositoryType>
@@ -31,7 +31,7 @@
 	</Target>
 	
   <ItemGroup>
-    <PackageReference Include="StackExchange.Redis" Version="2.8.58" />
+    <PackageReference Include="StackExchange.Redis" Version="2.9.11" />
   </ItemGroup>
 
 	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
@@ -39,10 +39,13 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(Configuration)' == 'Release'">
-		<PackageReference Include="BroadcastPluginSDK" Version="1.0.5" />
+		<PackageReference Include="BroadcastPluginSDK" Version="1.0.6" />
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="CachePage.cs">
+	    <SubType>UserControl</SubType>
+	  </Compile>
 	  <Compile Update="Properties\Resources.Designer.cs">
 	    <DesignTime>True</DesignTime>
 	    <AutoGen>True</AutoGen>

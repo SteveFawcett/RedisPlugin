@@ -1,91 +1,96 @@
-﻿using StackExchange.Redis;
-using System.Diagnostics;
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
+namespace RedisPlugin;
 
-namespace RedisPlugin
+internal class Connection : IDisposable
 {
-    internal class Connection : IDisposable
+    private const int REDIS_TIMEOUT = 5000; // 5 seconds
+
+    private ConnectionMultiplexer? _redis;
+    private IDatabase? db;
+    private ILogger _logger;
+    private string _server;
+    private int _port;
+
+    public bool Connected => _redis?.IsConnected ?? false;
+
+    private string? _lastmessage = String.Empty;
+    private void LogOnce(string message)
     {
-        private const int REDIS_TIMEOUT = 5000; // 5 seconds
+        if (_lastmessage == message) return;
+        _logger.LogError(message);
+        _lastmessage = message;
+    }
 
-        private ConnectionMultiplexer? _redis = null;
-        private IDatabase? db = null;
-        public Connection(string server , int port)
+    public Connection(ILogger logger, string server, int port)
+    {
+        _logger = logger;
+        _server = server;
+        _port = port;
+        Connect();
+    }
+
+    private void Connect()
+    {
+        try
         {
-            if (_redis == null)
-            {
-                try
-                {
-                    _redis = ConnectionMultiplexer.Connect($"{server}:{port},ConnectTimeout={REDIS_TIMEOUT}");
-                    if (_redis.IsConnected)
-                    {
-                        Debug.WriteLine($"Successfully connected to Redis server at {server}:{port}");
-                    }
-                }
-                catch (RedisConnectionException)
-                {
-                    Debug.WriteLine($"Failed to connect to Redis server at {server}:{port}.");
-                    _redis = null;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"An unexpected error occurred while connecting to Redis: {ex.Message}");
-                    _redis = null;
-                }
-            }
-            if (_redis != null)
-            {
-                Debug.WriteLine($"Redis connection established: {_redis.IsConnected}");
+            _redis = ConnectionMultiplexer.Connect($"{_server}:{_port},ConnectTimeout={REDIS_TIMEOUT}");
+            if (_redis.IsConnected) LogOnce($"Successfully connected to Redis server at {_server}:{_port}");
+  
+        }
+        catch (RedisConnectionException)
+        {
+            LogOnce($"Failed to connect to Redis server at {_server}:{_port}.");
+            _redis = null;
+        }
+        catch (Exception ex)
+        {
+            LogOnce($"An unexpected error occurred while connecting to Redis: {ex.Message}");
+            _redis = null;
 
-                if ( db == null)
-                {
-                    db = _redis.GetDatabase();
-                }
-            }
         }
 
-        public void Dispose()
+        if (_redis is { IsConnected: true } && db == null)
+            ; // No log needed, already logged above if connected
+
+        db ??= _redis?.GetDatabase();
+    }
+
+    public void Dispose()
+    {
+        if (_redis != null)
         {
-            if (_redis != null)
+            try
             {
-                try { 
-                    Debug.WriteLine("Closing Redis connection...");
-                    _redis.Close();
-                    _redis.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error while closing Redis connection: {ex.Message}");
-                }
-                _redis = null;
+                 LogOnce("Closing Redis connection...");
+                _redis.Close();
+                _redis.Dispose();
             }
-            db = null;
-        }
-        public bool IsConnected()
-        {
-            if (_redis == null)
+            catch (Exception ex)
             {
-                return false;
+                LogOnce($"Error while closing Redis connection: {ex.Message}");
             }
-            Debug.WriteLine($"Redis connection status: {_redis.IsConnected}");
-            return _redis.IsConnected;
-        }
-        public void write(string key, string value)
-        {
-            if (db != null)
-            {
-                db.StringSet(key, value);
-            }
-        }  
-        public string? read(string key)
-        {
-            if (db != null)
-            {
-                return db.StringGet(key);
-            }
-            return null;
+
+            _redis = null;
         }
 
+        db = null;
+    }
+
+    public void Write(string key, string value)
+    {
+        if( Connected == false ) Connect();
+
+        if (db != null) db.StringSet(key, value);
+    }
+
+    public string? Read(string key)
+    {
+        if (Connected == false) Connect();
+
+        if (db != null) return db.StringGet(key);
+        return null;
     }
 }

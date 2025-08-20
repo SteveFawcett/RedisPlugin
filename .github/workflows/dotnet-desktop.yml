@@ -57,7 +57,7 @@ jobs:
           if ("${{ github.event_name }}" -eq "release") {
               $version = "${{ steps.get_version.outputs.version }}"
           } else {
-              $version = Get-Date -Format "yyyy.MM.dd-HHmmss"
+              $version = Get-Date -Format "yyyy.MM.dd"
           }
           echo "Version=$version" >> $env:GITHUB_ENV
 
@@ -69,7 +69,7 @@ jobs:
              -restore
              -p:Configuration=${{ matrix.configuration }} 
              -p:OutputDirectory="${{ env.OutputDirectory }}" 
-             -p:Version="${{ env.Version }}"
+             -p:AssemblyVersion="${{ env.Version }}"
 
     - name: Upload package
       uses: actions/upload-artifact@v4

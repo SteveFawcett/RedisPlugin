@@ -1,12 +1,11 @@
 ﻿using BroadcastPluginSDK;
 
-namespace RedisPlugin
+namespace RedisPlugin;
+
+public partial class Info : InfoPage
 {
-    public partial class Info : InfoPage
+    public Info()
     {
-        public Info()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }
