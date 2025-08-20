@@ -18,7 +18,7 @@ public partial class CachePage : UserControl, IInfoPage
     }
     public CachePage( ILogger<IPlugin> logger , string server , int port)
     {
-        this._logger = logger;
+        _logger = logger;
         InitializeComponent();
 
         URL = $"redis://{server}:{port}";
