@@ -31,7 +31,7 @@
 	</Target>
 	
   <ItemGroup>
-    <PackageReference Include="StackExchange.Redis" Version="2.8.58" />
+    <PackageReference Include="StackExchange.Redis" Version="2.9.11" />
   </ItemGroup>
 
 	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
@@ -39,7 +39,7 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(Configuration)' == 'Release'">
-		<PackageReference Include="BroadcastPluginSDK" Version="1.0.5" />
+		<PackageReference Include="BroadcastPluginSDK" Version="1.0.6" />
 	</ItemGroup>
 
 	<ItemGroup>
