@@ -71,17 +71,18 @@ public class PluginBase : BroadcastCacheBase
         {
             _logger.LogInformation("Connected to Redis database.");
         }
-            // Assuming _connection.GetAllKeys() returns IEnumerable<string> of all keys in Redis
-            foreach (var key in _connection.GetAllKeys())
-            {
-                var value = _connection.Read(key) ?? string.Empty;
-                var data = new KeyValuePair<string, string>(key, value);
-                _infoPage.Redraw(data);
-                yield return data;
-            }
-        }
+        // TODO: Assuming _connection.GetAllKeys() returns IEnumerable<string> of all keys in Redis
+        // foreach (var key in _c)
+        // {
+        //     var value = _connection.Read(key) ?? string.Empty;
+        //     var data = new KeyValuePair<string, string>(key, value);
+        //     _infoPage.Redraw(data);
+        //     yield return data;
+        // }
+        yield break;
+     }
         // If not connected, yield nothing (empty sequence)
-    }
+   
 
     public KeyValuePair<string, string> ReadValue(string value)
     {

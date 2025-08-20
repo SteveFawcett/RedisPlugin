@@ -8,7 +8,6 @@ internal class Connection : IDisposable
 {
     private const int REDIS_TIMEOUT = 5000; // 5 seconds
 
-    private static ConnectionMultiplexer? _redis;
     private ConnectionMultiplexer? _redis;
     private IDatabase? db;
     private ILogger _logger;
