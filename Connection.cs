@@ -52,9 +52,6 @@ internal class Connection : IDisposable
 
         }
 
-        if (_redis is { IsConnected: true } && db == null)
-            ; // No log needed, already logged above if connected
-
         db ??= _redis?.GetDatabase();
     }
 
