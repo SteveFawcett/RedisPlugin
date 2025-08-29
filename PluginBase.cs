@@ -11,7 +11,7 @@ namespace RedisPlugin;
 
 public class PluginBase : BroadcastCacheBase
 {
-    private const string Stanza = "Redis";
+    private const string STANZA = "Redis";
 
     private static readonly Image s_icon = Resources.red;
     private readonly ILogger<IPlugin> _logger;
@@ -19,13 +19,13 @@ public class PluginBase : BroadcastCacheBase
     private CachePage _infoPage;
 
     public PluginBase(IConfiguration configuration, ILogger<IPlugin> logger) :
-        base(configuration, new CachePage(logger , "", 9999), s_icon, Stanza
+        base(configuration, new CachePage(logger , "", 9999), s_icon, STANZA
             )
     {
         _logger = logger;
 
-        int port = configuration.GetSection(Stanza).GetValue<int>("Port", 6379);
-        string server = configuration.GetSection(Stanza).GetValue<string>("Server", "localhost");
+        int port = configuration.GetSection(STANZA).GetValue<int>("Port", 6379);
+        string server = configuration.GetSection(STANZA).GetValue<string>("Server", "localhost");
 
         _infoPage = new CachePage(_logger , server, port);
 
