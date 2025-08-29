@@ -22,12 +22,30 @@
 		<RepositoryUrl>https://github.com/SteveFawcett/TestPlugin</RepositoryUrl>
 	</PropertyGroup>
 
-	<Target Name="Package" DependsOnTargets="Publish">
+	<Target Name="AutoPackage" AfterTargets="Publish">
+		<Message Importance="High" Text="📦 Packaging plugin to $(PackagePath)" />
 		<MakeDir Directories="$(PackageDir)" />
+
+		<ItemGroup>
+			<ZipFilesToDelete Include="$(MSBuildProjectDirectory)/$(PublishDir)**\*.zip" />
+		</ItemGroup>
+		<Message Importance="High" Text="📦 Remove any old zip files " />
+		<Delete Files="@(ZipFilesToDelete)" />
+
 		<ZipDirectory Overwrite="true" SourceDirectory="$(MSBuildProjectDirectory)/$(PublishDir)" DestinationFile="$(PackagePath)" />
-	</Target>
-	<Target Name="PackageClean" AfterTargets="Clean">
-		<Delete Files="$(PackagePath)" />
+
+		<Message Importance="High" Text="📦 Copying package from $(PackagePath) To $(MSBuildProjectDirectory)/$(PublishDir) " />
+		<Copy SourceFiles="$(PackagePath)" DestinationFolder="$(MSBuildProjectDirectory)/$(PublishDir)" />
+
+		<Copy SourceFiles="$(PackagePath)" DestinationFolder="$(AppData)/Broadcast/Plugins" Condition="'$(Configuration)' == 'Debug'" />
+		<Message Importance="High" Text="📦 Copying package $(AppData)/Broadcast/Plugins" Condition="'$(Configuration)' == 'Debug'" />
+
+		<ItemGroup>
+			<DynamicContent Include="$(PackagePath)">
+				<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+				<CopyToPublishDirectory>Always</CopyToPublishDirectory>
+			</DynamicContent>
+		</ItemGroup>
 	</Target>
 	
   <ItemGroup>
