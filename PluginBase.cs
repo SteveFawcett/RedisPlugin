@@ -18,6 +18,8 @@ public class PluginBase : BroadcastCacheBase
     private readonly Connection _connection;
     private CachePage _infoPage;
 
+    public PluginBase() : base() {}
+
     public PluginBase(IConfiguration configuration, ILogger<IPlugin> logger) :
         base(configuration, new CachePage(logger , "", 9999), s_icon, STANZA
             )
