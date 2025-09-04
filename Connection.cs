@@ -4,7 +4,7 @@ using StackExchange.Redis;
 
 namespace RedisPlugin;
 
-internal class Connection : IDisposable
+public class Connection : IDisposable
 {
     private const int REDIS_TIMEOUT = 5000; // 5 seconds
 
