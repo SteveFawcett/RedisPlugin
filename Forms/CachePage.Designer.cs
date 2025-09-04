@@ -1,7 +1,7 @@
 ﻿using System.Drawing;
 using System.Windows.Forms;
-
-namespace RedisPlugin
+using RedisPlugin.Classes;
+namespace RedisPlugin.Forms
 {
     partial class CachePage
     {
@@ -16,6 +16,7 @@ namespace RedisPlugin
         {
             listView1 = new ListView();
             textBox1 = new TextBox();
+            Connected = new CustomRadioButton();
             SuspendLayout();
             // 
             // listView1
@@ -38,10 +39,24 @@ namespace RedisPlugin
             textBox1.TabIndex = 2;
             textBox1.TextAlign = HorizontalAlignment.Center;
             // 
+            // Connected
+            // 
+            Connected.AutoSize = true;
+            Connected.ImageAlign = ContentAlignment.BottomCenter;
+            Connected.Location = new Point(3, 362);
+            Connected.Name = "Connected";
+            Connected.Size = new Size(83, 19);
+            Connected.TabIndex = 3;
+            Connected.TabStop = true;
+            Connected.Text = "Connected";
+            Connected.UseVisualStyleBackColor = true;
+            Connected.Click += Connected_Click;
+            // 
             // CachePage
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
+            Controls.Add(Connected);
             Controls.Add(textBox1);
             Controls.Add(listView1);
             Name = "CachePage";
@@ -53,5 +68,6 @@ namespace RedisPlugin
         #endregion
         private ListView listView1;
         private TextBox textBox1;
+        private CustomRadioButton Connected;
     }
 }

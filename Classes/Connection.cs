@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace RedisPlugin;
+namespace RedisPlugin.Classes;
 
 public class Connection : IDisposable
 {
@@ -13,10 +13,11 @@ public class Connection : IDisposable
     private ILogger _logger;
     private string _server;
     private int _port;
+    public bool isConnected => _redis?.IsConnected ?? false;
 
-    public bool Connected => _redis?.IsConnected ?? false;
+    public EventHandler<bool>? OnConnectionChange;
 
-    private string? _lastmessage = String.Empty;
+    private string? _lastmessage = string.Empty;
     private void LogOnce(string message)
     {
         if (_lastmessage == message) return;
@@ -37,17 +38,29 @@ public class Connection : IDisposable
         try
         {
             _redis = ConnectionMultiplexer.Connect($"{_server}:{_port},ConnectTimeout={REDIS_TIMEOUT}");
-            if (_redis.IsConnected) LogOnce($"Successfully connected to Redis server at {_server}:{_port}");
-  
+            if (_redis.IsConnected)
+            {
+                LogOnce($"Successfully connected to Redis server at {_server}:{_port}");
+                OnConnectionChange?.Invoke(this, true);
+            }
+            else
+            {
+                LogOnce($"Failed to connect to Redis server at {_server}:{_port}.");
+                OnConnectionChange?.Invoke(this, false);
+                _redis = null;
+            }
+
         }
         catch (RedisConnectionException)
         {
             LogOnce($"Failed to connect to Redis server at {_server}:{_port}.");
+            OnConnectionChange?.Invoke(this, false);
             _redis = null;
         }
         catch (Exception ex)
         {
             LogOnce($"An unexpected error occurred while connecting to Redis: {ex.Message}");
+            OnConnectionChange?.Invoke(this, false);
             _redis = null;
 
         }
@@ -78,14 +91,14 @@ public class Connection : IDisposable
 
     public void Write(string key, string value)
     {
-        if( Connected == false ) Connect();
+        if( isConnected == false ) Connect();
 
         if (db != null) db.StringSet(key, value);
     }
 
     public string? Read(string key)
     {
-        if (Connected == false) Connect();
+        if (isConnected == false) Connect();
 
         if (db != null) return db.StringGet(key);
         return null;

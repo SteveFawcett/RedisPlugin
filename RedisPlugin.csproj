@@ -76,7 +76,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Update="CachePage.cs">
+	  <Compile Update="Forms\CachePage.cs">
 	    <SubType>UserControl</SubType>
 	  </Compile>
 	  <Compile Update="Properties\Resources.Designer.cs">
@@ -84,7 +84,7 @@
 	    <AutoGen>True</AutoGen>
 	    <DependentUpon>Resources.resx</DependentUpon>
 	  </Compile>
-	  <Compile Update="Info.cs" />
+	  <Compile Update="Forms\Info.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

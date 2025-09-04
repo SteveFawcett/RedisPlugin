@@ -1,8 +1,8 @@
-﻿using BroadcastPluginSDK;
-using BroadcastPluginSDK.Interfaces;
+﻿using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Logging;
-using System.Net.Mime;
-namespace RedisPlugin;
+using RedisPlugin.Classes;
+
+namespace RedisPlugin.Forms;
 
 public partial class CachePage : UserControl, IInfoPage
 {
@@ -17,7 +17,7 @@ public partial class CachePage : UserControl, IInfoPage
     {
         get => textBox1.Text; set => textBox1.Text = value;
     }
-    public CachePage( ILogger<IPlugin> logger , string server , int port , Connection? connection)
+    public CachePage(ILogger<IPlugin> logger, string server, int port, Connection? connection)
     {
         _logger = logger;
         _connection = connection;
@@ -58,6 +58,16 @@ public partial class CachePage : UserControl, IInfoPage
         return this;
     }
 
+    public void SetState(bool value)
+    {
+        if (Connected.InvokeRequired)
+        {
+            if (Connected != null && Connected.IsHandleCreated && !Connected.IsDisposed)
+                Connected.Invoke(() => SetState(value));
+            return;
+        }
+        Connected.Checked = value;
+    }
     public void Redraw(KeyValuePair<string, string> kvp)
     {
         if (listView1.InvokeRequired)
@@ -85,8 +95,8 @@ public partial class CachePage : UserControl, IInfoPage
         }
         else
         {
-            _logger.LogDebug( "{0} => {1}", kvp.Key, kvp.Value);
-           
+            _logger.LogDebug("{0} => {1}", kvp.Key, kvp.Value);
+
             var item = new ListViewItem(kvp.Key)
             {
                 Name = kvp.Key
@@ -101,5 +111,10 @@ public partial class CachePage : UserControl, IInfoPage
         {
             Redraw(kvp);
         }
+    }
+
+    private void Connected_Click(object sender, EventArgs e)
+    {
+        Connected.Checked = !Connected.Checked;
     }
 }
