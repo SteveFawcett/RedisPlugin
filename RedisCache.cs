@@ -16,6 +16,8 @@ namespace RedisPlugin;
 public class RedisCache : BroadcastCacheBase
 {
     private const string STANZA = "Redis";
+    private const int PORT = 6379;
+    private const string SERVER = "localhost";
 
     private static readonly Image s_icon = Resources.red;
     private readonly ILogger<IPlugin>? _logger;
@@ -30,8 +32,8 @@ public class RedisCache : BroadcastCacheBase
     {
         _logger = logger;
 
-        int port = configuration.GetSection(STANZA).GetValue<int>("port", 6379);
-        string server = configuration.GetSection(STANZA).GetValue<string>("server", "localhost");
+        int port = configuration.GetSection(STANZA).GetValue<int>("port", PORT);
+        string server = configuration.GetSection(STANZA).GetValue<string>("server", SERVER);
 
         _connection = new Connection(_logger , server, port);
         _connection.OnConnectionChange += Connection_OnConnectionChange;
@@ -45,8 +47,8 @@ public class RedisCache : BroadcastCacheBase
 
     public static CachePage LoadCachePage( IConfiguration config, ILogger<IPlugin> logger , Connection? _connection )
     {
-        int port = config.GetSection(STANZA).GetValue<int>("port", 6379);
-        string server = config.GetSection(STANZA).GetValue<string>("server", "localhost");
+        int port = config.GetSection(STANZA).GetValue<int>("port", PORT);
+        string server = config.GetSection(STANZA).GetValue<string>("server", SERVER);
 
         _infoPage =  new CachePage(logger, server, port , _connection );
 
