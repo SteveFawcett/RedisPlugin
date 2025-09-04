@@ -19,7 +19,9 @@ public class RedisCache : BroadcastCacheBase
 
     private static readonly Image s_icon = Resources.red;
     private readonly ILogger<IPlugin>? _logger;
-    private static Connection _connection ;
+#pragma warning disable CS8618
+    private static  Connection _connection ;
+#pragma warning restore CS8618 
 
     public static CachePage? _infoPage;
     public RedisCache() : base() { }
@@ -42,7 +44,7 @@ public class RedisCache : BroadcastCacheBase
         var port = configuration.GetSection(STANZA).GetValue<int>("port");
         var server = configuration.GetSection(STANZA).GetValue<string>("server");
 
-        _connection = new Connection( logger, server , port);
+        _connection = new Connection( logger, server ?? string.Empty, port);
        
         _infoPage = new CachePage(logger, _connection);
         return _infoPage;
