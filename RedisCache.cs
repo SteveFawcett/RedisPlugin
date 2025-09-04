@@ -16,44 +16,38 @@ namespace RedisPlugin;
 public class RedisCache : BroadcastCacheBase
 {
     private const string STANZA = "Redis";
-    private const int PORT = 6379;
-    private const string SERVER = "localhost";
 
     private static readonly Image s_icon = Resources.red;
     private readonly ILogger<IPlugin>? _logger;
-    private static Connection? _connection;
-    private static CachePage? _infoPage;
-    private event EventHandler? _onConnection;
-    public RedisCache() : base() {}
+    private static Connection _connection ;
+
+    public static CachePage? _infoPage;
+    public RedisCache() : base() { }
 
     public RedisCache(IConfiguration configuration, ILogger<IPlugin> logger) :
-        base(configuration, LoadCachePage(configuration , logger , _connection ), s_icon, STANZA
-            )
+        base(configuration, LoadCachePage( logger , configuration), s_icon, STANZA)
     {
         _logger = logger;
-
-        int port = configuration.GetSection(STANZA).GetValue<int>("port", PORT);
-        string server = configuration.GetSection(STANZA).GetValue<string>("server", SERVER);
-
-        _connection = new Connection(_logger , server, port);
         _connection.OnConnectionChange += Connection_OnConnectionChange;
     }
 
-    private void Connection_OnConnectionChange(object? sender, bool isConnected)
+    private void Connection_OnConnectionChange(object? sender, bool isConnected) 
     {
-        _logger?.LogInformation($"Redis connection status changed: {(isConnected ? "Connected" : "Disconnected")}");
+        _logger?.LogDebug($"Redis connection status changed: {(isConnected ? "Connected" : "Disconnected")}");
         _infoPage?.SetState( isConnected );
     }
 
-    public static CachePage LoadCachePage( IConfiguration config, ILogger<IPlugin> logger , Connection? _connection )
+    public static CachePage LoadCachePage( ILogger<IPlugin> logger, IConfiguration configuration)
     {
-        int port = config.GetSection(STANZA).GetValue<int>("port", PORT);
-        string server = config.GetSection(STANZA).GetValue<string>("server", SERVER);
+        var port = configuration.GetSection(STANZA).GetValue<int>("port");
+        var server = configuration.GetSection(STANZA).GetValue<string>("server");
 
-        _infoPage =  new CachePage(logger, server, port , _connection );
-
+        _connection = new Connection( logger, server , port);
+       
+        _infoPage = new CachePage(logger, _connection);
         return _infoPage;
     }
+
     public override void Clear()
     {
             //TODO: Not Implemented yet
@@ -61,13 +55,14 @@ public class RedisCache : BroadcastCacheBase
 
     public override void Write(Dictionary<string, string> data)
     {
+        if (! _connection.isConnected) _connection.Connect(); // Attempt to connect if not already connected
+        
         if (_connection is not null &&  _connection.isConnected)
         {
             foreach (var kvp in data)
             {
                 _connection?.Write(kvp.Key, kvp.Value);
             }
-            _logger?.LogInformation("Connected to Redis database.");
         }
         _infoPage?.Redraw( data );
     }
@@ -86,6 +81,8 @@ public class RedisCache : BroadcastCacheBase
 
     public IEnumerable<KeyValuePair<string, string>> Read()
     {
+        if (!_connection.isConnected) _connection.Connect(); // Attempt to connect if not already connected
+
         if (_connection is not null && _connection.isConnected)
         {
             _logger?.LogInformation("Connected to Redis database.");
@@ -102,7 +99,6 @@ public class RedisCache : BroadcastCacheBase
      }
         // If not connected, yield nothing (empty sequence)
    
-
     public KeyValuePair<string, string> ReadValue(string value)
     {
         if (_connection is not null &&  _connection.isConnected)

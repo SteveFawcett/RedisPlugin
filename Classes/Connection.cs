@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using System.Security.Cryptography.Xml;
+using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -6,38 +8,54 @@ namespace RedisPlugin.Classes;
 
 public class Connection : IDisposable
 {
+    private const int PORT = 6379;
+    private const string SERVER = "localhost";
+
     private const int REDIS_TIMEOUT = 5000; // 5 seconds
 
     private ConnectionMultiplexer? _redis;
     private IDatabase? db;
-    private ILogger _logger;
+    private ILogger<IPlugin>? _logger;
     private string _server;
     private int _port;
     public bool isConnected => _redis?.IsConnected ?? false;
 
     public EventHandler<bool>? OnConnectionChange;
 
+    public string Server => _server;
+    public int Port => _port;
+
     private string? _lastmessage = string.Empty;
     private void LogOnce(string message)
     {
         if (_lastmessage == message) return;
-        _logger.LogError(message);
+        _logger?.LogError(message);
         _lastmessage = message;
     }
 
-    public Connection(ILogger logger, string server, int port)
+    public Connection(ILogger<IPlugin>? logger, string server = SERVER, int port = PORT)
     {
         _logger = logger;
-        _server = server;
-        _port = port;
+        _server = server ?? SERVER ;
+        _port = port ;
+        if (_logger == null) return;
         Connect();
     }
 
-    private void Connect()
+    public void Connect()
     {
+        var config = new ConfigurationOptions
+        {
+            EndPoints = { $"{_server}:{_port}" },
+            ConnectTimeout = REDIS_TIMEOUT,
+            AbortOnConnectFail = false, // prevents hard exceptions on startup
+            AllowAdmin = true
+        };
+
         try
         {
-            _redis = ConnectionMultiplexer.Connect($"{_server}:{_port},ConnectTimeout={REDIS_TIMEOUT}");
+            _redis = ConnectionMultiplexer.Connect(config);
+
             if (_redis.IsConnected)
             {
                 LogOnce($"Successfully connected to Redis server at {_server}:{_port}");
@@ -48,6 +66,7 @@ public class Connection : IDisposable
                 LogOnce($"Failed to connect to Redis server at {_server}:{_port}.");
                 OnConnectionChange?.Invoke(this, false);
                 _redis = null;
+                return;
             }
 
         }
@@ -56,13 +75,14 @@ public class Connection : IDisposable
             LogOnce($"Failed to connect to Redis server at {_server}:{_port}.");
             OnConnectionChange?.Invoke(this, false);
             _redis = null;
+            return;
         }
         catch (Exception ex)
         {
             LogOnce($"An unexpected error occurred while connecting to Redis: {ex.Message}");
             OnConnectionChange?.Invoke(this, false);
             _redis = null;
-
+            return;
         }
 
         db ??= _redis?.GetDatabase();

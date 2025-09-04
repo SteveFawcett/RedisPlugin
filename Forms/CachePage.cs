@@ -11,20 +11,20 @@ public partial class CachePage : UserControl, IInfoPage
     private string? _name;
     private string? _version;
     private readonly ILogger<IPlugin> _logger;
-    private readonly Connection? _connection;
+    private readonly Connection _connection;
 
     public string URL
     {
         get => textBox1.Text; set => textBox1.Text = value;
     }
-    public CachePage(ILogger<IPlugin> logger, string server, int port, Connection? connection)
+    public CachePage(ILogger<IPlugin> logger,  Connection connection)
     {
         _logger = logger;
         _connection = connection;
 
         InitializeComponent();
 
-        URL = $"redis://{server}:{port}";
+        URL = $"redis://{connection.Server}:{connection.Port}";
         _logger.LogInformation(URL);
 
     }
