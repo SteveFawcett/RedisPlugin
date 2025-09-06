@@ -35,7 +35,6 @@ public partial class CachePage : UserControl, IInfoPage
         _connection = connection;
 
         InitializeComponent();
-
     }
 
     public Image? Icon
@@ -94,28 +93,45 @@ public partial class CachePage : UserControl, IInfoPage
         if (listView1.Columns.Count < 2)
         {
             listView1.Columns.Clear();
-            listView1.Columns.Add("Key", 250);
-            listView1.Columns.Add("Value", 150);
+            listView1.Columns.Add("Key");
+            listView1.Columns.Add("Value");
         }
 
-        var items = listView1.Items.Find(kvp.Key, false);
+        listView1.BeginUpdate();
 
-        if (items.Length > 0)
+        try
         {
-            items[0].SubItems[1].Text = kvp.Value;
-        }
-        else
-        {
-            _logger.LogDebug("{0} => {1}", kvp.Key, kvp.Value);
+            var items = listView1.Items.Find(kvp.Key, false);
 
-            var item = new ListViewItem(kvp.Key)
+            if (items.Length > 0)
             {
-                Name = kvp.Key
-            };
-            item.SubItems.Add(kvp.Value);
-            listView1.Items.Add(item);
+                items[0].SubItems[1].Text = kvp.Value;
+            }
+            else
+            {
+                _logger.LogDebug("{0} => {1}", kvp.Key, kvp.Value);
+
+                var item = new ListViewItem(kvp.Key)
+                {
+                    Name = kvp.Key
+                };
+                item.SubItems.Add(kvp.Value);
+                listView1.Items.Add(item);
+            }
+
+            int totalWidth = listView1.ClientSize.Width;
+
+            listView1.AutoResizeColumn(0, ColumnHeaderAutoResizeStyle.ColumnContent);
+
+            int firstColWidth = listView1.Columns[0].Width;
+            listView1.Columns[1].Width = Math.Max(100, totalWidth - firstColWidth);
+        }
+        finally
+        {
+            listView1.EndUpdate();
         }
     }
+
     public void Redraw(Dictionary<string, string> myDict)
     {
      
