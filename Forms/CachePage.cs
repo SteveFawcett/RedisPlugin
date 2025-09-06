@@ -1,4 +1,5 @@
-﻿using BroadcastPluginSDK.Interfaces;
+﻿using BroadcastPluginSDK;
+using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Logging;
 using RedisPlugin.Classes;
 
@@ -11,11 +12,22 @@ public partial class CachePage : UserControl, IInfoPage
     private string? _name;
     private string? _version;
     private readonly ILogger<IPlugin> _logger;
-    private readonly Connection _connection;
+    private Connection _connection;
 
+    public Connection Connection => _connection;
     public string URL
     {
-        get => textBox1.Text; set => textBox1.Text = value;
+        set
+        {
+            if (textBox1.InvokeRequired)
+            {
+                textBox1.Invoke(new Action(() => textBox1.Text = value));
+            }
+            else
+            {
+                textBox1.Text = value;
+            }
+        }
     }
     public CachePage(ILogger<IPlugin> logger,  Connection connection)
     {
@@ -23,9 +35,6 @@ public partial class CachePage : UserControl, IInfoPage
         _connection = connection;
 
         InitializeComponent();
-
-        URL = $"redis://{connection.Server}:{connection.Port}";
-        _logger.LogInformation(URL);
 
     }
 
@@ -67,6 +76,8 @@ public partial class CachePage : UserControl, IInfoPage
             return;
         }
         Connected.Checked = value;
+        if( _connection != null )URL = $"{ _connection.Server}:{ _connection.Port}";
+        
     }
     public void Redraw(KeyValuePair<string, string> kvp)
     {
@@ -107,6 +118,7 @@ public partial class CachePage : UserControl, IInfoPage
     }
     public void Redraw(Dictionary<string, string> myDict)
     {
+     
         foreach (var kvp in myDict)
         {
             Redraw(kvp);

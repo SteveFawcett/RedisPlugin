@@ -1,114 +1,192 @@
-﻿using BroadcastPluginSDK;
-using BroadcastPluginSDK.abstracts;
-using BroadcastPluginSDK.Classes;
+﻿using BroadcastPluginSDK.abstracts;
 using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RedisPlugin.Classes;
 using RedisPlugin.Forms;
 using RedisPlugin.Properties;
-using System.ComponentModel.DataAnnotations;
-using System.Configuration;
-using System.Net.Security;
+using System.Timers;
 
 namespace RedisPlugin;
 
-public class RedisCache : BroadcastCacheBase
+public class RedisCache : BroadcastCacheBase, IDisposable
 {
     private const string STANZA = "Redis";
-
+    private System.Threading.Timer? Timer;
     private static readonly Image s_icon = Resources.red;
     private readonly ILogger<IPlugin>? _logger;
+    private static readonly object _syncRoot = new();
+
 #pragma warning disable CS8618
-    private static  Connection _connection ;
-#pragma warning restore CS8618 
+    private static Connection _connection;
+#pragma warning restore CS8618
 
     public static CachePage? _infoPage;
+    private bool _disposed = false;
+
     public RedisCache() : base() { }
 
     public RedisCache(IConfiguration configuration, ILogger<IPlugin> logger) :
-        base(configuration, LoadCachePage( logger , configuration), s_icon, STANZA)
+        base(configuration, LoadCachePage(logger, configuration), s_icon, STANZA)
     {
         _logger = logger;
-        _connection.OnConnectionChange += Connection_OnConnectionChange;
-    }
 
-    private void Connection_OnConnectionChange(object? sender, bool isConnected) 
-    {
-        _logger?.LogDebug($"Redis connection status changed: {(isConnected ? "Connected" : "Disconnected")}");
-        _infoPage?.SetState( isConnected );
-    }
-
-    public static CachePage LoadCachePage( ILogger<IPlugin> logger, IConfiguration configuration)
-    {
         var port = configuration.GetSection(STANZA).GetValue<int>("port");
-        var server = configuration.GetSection(STANZA).GetValue<string>("server");
+        var server = configuration.GetSection(STANZA).GetValue<string>("server") ?? string.Empty;
 
-        _connection = new Connection( logger, server ?? string.Empty, port);
-       
-        _infoPage = new CachePage(logger, _connection);
-        return _infoPage;
+        lock (_syncRoot)
+        {
+            _connection = new(logger, server, port);
+            _connection.OnConnectionChange += Connection_OnConnectionChange;
+        }
+
+        Timer = new System.Threading.Timer(
+            callback => Timer_Elapsed(),
+            null,
+            dueTime: 0,         // 🔥 Fire immediately
+            period: 10000
+        );
+    }
+
+    private void Timer_Elapsed()
+    {
+        _logger?.LogDebug("Timer elapsed, checking Redis connection...");
+        lock (_syncRoot)
+        {
+            _connection.Connect();
+        }
+    }
+
+    private void Connection_OnConnectionChange(object? sender, bool isConnected)
+    {
+        _logger?.LogInformation($"Redis connection status changed: {(isConnected ? "Connected" : "Disconnected")}");
+        lock (_syncRoot)
+        {
+            _infoPage?.SetState(isConnected);
+            if (isConnected)
+            {
+                if (_infoPage != null) _infoPage.URL = $"{_connection.Server}:{_connection.Port}";
+            }
+            else
+            {
+                if (_infoPage != null) _infoPage.URL = $"Connecting to: {_connection.Server}:{_connection.Port}";
+            }
+        }
+    }
+
+    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration)
+    {
+        lock (_syncRoot)
+        {
+            _infoPage = new CachePage(logger, _connection);
+            return _infoPage;
+        }
     }
 
     public override void Clear()
     {
-            //TODO: Not Implemented yet
+        //TODO: Not Implemented yet
     }
 
     public override void Write(Dictionary<string, string> data)
     {
-        if (! _connection.isConnected) _connection.Connect(); // Attempt to connect if not already connected
-        
-        if (_connection is not null &&  _connection.isConnected)
+        try
         {
-            foreach (var kvp in data)
+            lock (_syncRoot)
             {
-                _connection?.Write(kvp.Key, kvp.Value);
+                if (!_connection.isConnected) _connection.Connect();
+
+                if ( _connection.isConnected)
+                {
+                    foreach (var kvp in data)
+                    {
+                        _connection?.Write(kvp.Key, kvp.Value);
+                    }
+                    _infoPage?.Redraw(data);
+                }
             }
         }
-        _infoPage?.Redraw( data );
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error in Write method: {Message}", ex.Message);
+            return;
+        }
     }
 
     public override List<KeyValuePair<string, string>> CacheReader(List<string> values)
     {
-        if (values.Count == 0) return Read().ToList();
-
-        return Read(values).ToList();
+        lock (_syncRoot)
+        {
+            if (values.Count == 0) return Read().ToList();
+            return Read(values).ToList();
+        }
     }
 
     public IEnumerable<KeyValuePair<string, string>> Read(List<string> values)
     {
-        foreach (var value in values) yield return ReadValue(value);
+        lock (_syncRoot)
+        {
+            foreach (var value in values) yield return ReadValue(value);
+        }
     }
 
     public IEnumerable<KeyValuePair<string, string>> Read()
     {
-        if (!_connection.isConnected) _connection.Connect(); // Attempt to connect if not already connected
-
-        if (_connection is not null && _connection.isConnected)
+        lock (_syncRoot)
         {
-            _logger?.LogInformation("Connected to Redis database.");
+            if (!_connection.isConnected) _connection.Connect();
+
+            if (_connection.isConnected)
+            {
+                _logger?.LogDebug("Read: Connected to Redis database.");
+            }
+            // TODO: Implement key enumeration
+            yield break;
         }
-        // TODO: Assuming _connection.GetAllKeys() returns IEnumerable<string> of all keys in Redis
-        // foreach (var key in _c)
-        // {
-        //     var value = _connection.Read(key) ?? string.Empty;
-        //     var data = new KeyValuePair<string, string>(key, value);
-        //     _infoPage.Redraw(data);
-        //     yield return data;
-        // }
-        yield break;
-     }
-        // If not connected, yield nothing (empty sequence)
-   
+    }
+
     public KeyValuePair<string, string> ReadValue(string value)
     {
-        if (_connection is not null &&  _connection.isConnected)
+        lock (_syncRoot)
         {
-            var data = new KeyValuePair<string, string>(value, _connection.Read(value) ?? string.Empty);
-            _infoPage?.Redraw( data );
-            return data;
+            if (_connection.isConnected)
+            {
+                var data = new KeyValuePair<string, string>(value, _connection.Read(value) ?? string.Empty);
+                _infoPage?.Redraw(data);
+                return data;
+            }
+            return new KeyValuePair<string, string>(value, string.Empty);
         }
-        return new KeyValuePair<string, string>(value, string.Empty);
+    }
+
+    // IDisposable implementation
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+        if (disposing)
+        {
+            lock (_syncRoot)
+            {
+                if (Timer != null)
+                {
+                    Timer.Dispose();
+                }
+                if (_connection != null)
+                {
+                    _connection.Dispose();
+                }
+                if (_infoPage is IDisposable disposablePage)
+                {
+                    disposablePage.Dispose();
+                }
+            }
+        }
+        _disposed = true;
     }
 }

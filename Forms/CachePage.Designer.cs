@@ -32,10 +32,12 @@ namespace RedisPlugin.Forms
             // 
             textBox1.BackColor = SystemColors.Control;
             textBox1.BorderStyle = BorderStyle.None;
+            textBox1.Text = "Initializing";
+            textBox1.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
             textBox1.Enabled = false;
             textBox1.Location = new Point(133, 362);
             textBox1.Name = "textBox1";
-            textBox1.Size = new Size(197, 16);
+            textBox1.Size = new Size(250, 26);
             textBox1.TabIndex = 2;
             textBox1.TextAlign = HorizontalAlignment.Center;
             // 
@@ -44,6 +46,7 @@ namespace RedisPlugin.Forms
             Connected.AutoSize = true;
             Connected.ImageAlign = ContentAlignment.BottomCenter;
             Connected.Location = new Point(3, 362);
+            Connected.Font = new Font("Segoe UI", 12F, FontStyle.Regular, GraphicsUnit.Point);
             Connected.Name = "Connected";
             Connected.Size = new Size(83, 19);
             Connected.TabIndex = 3;
