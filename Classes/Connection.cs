@@ -147,6 +147,7 @@ public class Connection : IDisposable
             {
                 if (db != null)
                 {
+                    _logger?.LogInformation($"============>        Attempting to get : {key}");
                     var value = db.StringGet(key);
                     return value.HasValue ? (string?)value : null;
                 }

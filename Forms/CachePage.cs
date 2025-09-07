@@ -82,8 +82,7 @@ public partial class CachePage : UserControl, IInfoPage
     {
         if (listView1.InvokeRequired)
         {
-            if (listView1 != null && listView1.IsHandleCreated && !listView1.IsDisposed)
-                listView1.Invoke(() => Redraw(kvp));
+            listView1.Invoke(() => Redraw(kvp));
             return;
         }
 

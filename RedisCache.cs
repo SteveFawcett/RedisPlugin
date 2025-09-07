@@ -1,10 +1,12 @@
-﻿using BroadcastPluginSDK.abstracts;
+﻿ 
+using BroadcastPluginSDK.abstracts;
 using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RedisPlugin.Classes;
 using RedisPlugin.Forms;
 using RedisPlugin.Properties;
+using System.Diagnostics;
 using System.Timers;
 
 namespace RedisPlugin;
@@ -109,6 +111,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Error in Write method: {Message}", ex.Message);
+       
             return;
         }
     }
