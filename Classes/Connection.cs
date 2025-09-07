@@ -121,6 +121,14 @@ public class Connection : IDisposable
         }
     }
 
+    public List<string> Keys()
+    {
+        var endpoint = _redis?.GetEndPoints().First();
+        var server = _redis?.GetServer(endpoint);
+
+        return server?.Keys(pattern: "*").Select(k => k.ToString()).ToList() ?? [];
+    }
+
     public void Write(string key, string value)
     {
         lock (_syncRoot)
@@ -147,7 +155,7 @@ public class Connection : IDisposable
             {
                 if (db != null)
                 {
-                    _logger?.LogInformation($"============>        Attempting to get : {key}");
+                    _logger?.LogDebug($"Attempting to get : {key}");
                     var value = db.StringGet(key);
                     return value.HasValue ? (string?)value : null;
                 }

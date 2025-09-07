@@ -6,8 +6,10 @@ using Microsoft.Extensions.Logging;
 using RedisPlugin.Classes;
 using RedisPlugin.Forms;
 using RedisPlugin.Properties;
+using StackExchange.Redis;
 using System.Diagnostics;
 using System.Timers;
+using System.Windows.Forms;
 
 namespace RedisPlugin;
 
@@ -143,8 +145,9 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             {
                 _logger?.LogDebug("Read: Connected to Redis database.");
             }
-            // TODO: Implement key enumeration
-            yield break;
+
+            foreach( string key in _connection.Keys() )
+                yield return ReadValue( key );
         }
     }
 
