@@ -121,22 +121,22 @@ public class Connection : IDisposable
         }
     }
 
-    public List<string> Keys()
+    public List<string> Keys(RedisPrefixes prefix = RedisPrefixes.DATA )
     {
         var endpoint = _redis?.GetEndPoints().First();
         var server = _redis?.GetServer(endpoint);
 
-        return server?.Keys(pattern: "*").Select(k => k.ToString()).ToList() ?? [];
+        return server?.Keys(pattern: $"{prefix.ToString()}:*").Select(k => k.ToString()).ToList() ?? [];
     }
 
-    public void Write(string key, string value)
+    public void Write(string key, string value , RedisPrefixes prefix = RedisPrefixes.DATA )
     {
         lock (_syncRoot)
         {
             if (!isConnected) Connect();
             try
             {
-                db?.StringSet(key, value);
+                db?.StringSet( $"{prefix.ToString()}:{key}", value);
             }
             catch (Exception ex)
             {
@@ -145,7 +145,7 @@ public class Connection : IDisposable
         }
     }
 
-    public string? Read(string key)
+    public string? Read(string key, RedisPrefixes prefix = RedisPrefixes.DATA )
     {
         lock (_syncRoot)
         {
@@ -155,8 +155,8 @@ public class Connection : IDisposable
             {
                 if (db != null)
                 {
-                    _logger?.LogDebug($"Attempting to get : {key}");
-                    var value = db.StringGet(key);
+                    _logger?.LogDebug($"Attempting to get : {prefix.ToString()}:{key}");
+                    var value = db.StringGet($"{prefix.ToString()}:{key}");
                     return value.HasValue ? (string?)value : null;
                 }
                 return null;

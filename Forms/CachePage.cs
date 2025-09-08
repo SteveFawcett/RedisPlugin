@@ -13,7 +13,6 @@ public partial class CachePage : UserControl, IInfoPage
     private string? _version;
     private readonly ILogger<IPlugin> _logger;
     private Connection _connection;
-
     public Connection Connection => _connection;
     public string URL
     {
