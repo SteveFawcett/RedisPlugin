@@ -92,7 +92,10 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         //TODO: Not Implemented yet
     }
 
-    public override void CacheWriter(Dictionary<string, string> data)
+    public override void CacheWriter(Dictionary<string, string> data) => InternalCacheWriter(data, RedisPrefixes.DATA);
+    public override void CommandWriter(Dictionary<string, string> data) => InternalCacheWriter(data, RedisPrefixes.COMMAND);
+
+    private void InternalCacheWriter(Dictionary<string, string> data, RedisPrefixes prefix = RedisPrefixes.DATA)
     {
         try
         {
@@ -104,7 +107,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
                 {
                     foreach (var kvp in data)
                     {
-                        _connection?.Write(kvp.Key, kvp.Value);
+                        _connection?.Write(kvp.Key, kvp.Value , prefix);
                     }
                     _infoPage?.Redraw(data);
                 }
@@ -118,24 +121,27 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         }
     }
 
-    public override List<KeyValuePair<string, string>> CacheReader(List<string> values)
+    public override List<KeyValuePair<string, string>> CacheReader(List<string> values) => InternalCacheReader(values , RedisPrefixes.DATA);
+    public override List<KeyValuePair<string, string>> CommandReader(List<string> values) => InternalCacheReader(values, RedisPrefixes.COMMAND);
+
+    private List<KeyValuePair<string, string>> InternalCacheReader(List<string> values, RedisPrefixes prefix = RedisPrefixes.DATA)
     {
         lock (_syncRoot)
         {
-            if (values.Count == 0) return Read().ToList();
-            return Read(values).ToList();
+            if (values.Count == 0) return Read(prefix).ToList();
+            return Read(values, prefix).ToList();
         }
     }
 
-    public IEnumerable<KeyValuePair<string, string>> Read(List<string> values)
+    public IEnumerable<KeyValuePair<string, string>> Read(List<string> values , RedisPrefixes prefix = RedisPrefixes.DATA)
     {
         lock (_syncRoot)
         {
-            foreach (var value in values) yield return ReadValue(value);
+            foreach (var value in values) yield return ReadValue(value , prefix);
         }
     }
 
-    public IEnumerable<KeyValuePair<string, string>> Read()
+    public IEnumerable<KeyValuePair<string, string>> Read( RedisPrefixes prefix = RedisPrefixes.DATA)
     {
         lock (_syncRoot)
         {
@@ -146,18 +152,18 @@ public class RedisCache : BroadcastCacheBase, IDisposable
                 _logger?.LogDebug("Read: Connected to Redis database.");
             }
 
-            foreach( string key in _connection.Keys() )
-                yield return ReadValue( key );
+            foreach( string key in _connection.Keys( prefix ) )
+                yield return ReadValue( key , prefix);
         }
     }
 
-    public KeyValuePair<string, string> ReadValue(string value)
+    public KeyValuePair<string, string> ReadValue(string value, RedisPrefixes prefix = RedisPrefixes.DATA)
     {
         lock (_syncRoot)
         {
             if (_connection.isConnected)
             {
-                var data = new KeyValuePair<string, string>(value, _connection.Read(value) ?? string.Empty);
+                var data = new KeyValuePair<string, string>(value, _connection.Read(value , prefix) ?? string.Empty);
                 _infoPage?.Redraw(data);
                 return data;
             }
