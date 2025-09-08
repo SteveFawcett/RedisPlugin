@@ -92,7 +92,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         //TODO: Not Implemented yet
     }
 
-    public override void Write(Dictionary<string, string> data)
+    public override void CacheWriter(Dictionary<string, string> data)
     {
         try
         {
@@ -112,7 +112,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Error in Write method: {Message}", ex.Message);
+            _logger?.LogError(ex, "Error in CacheWriter method: {Message}", ex.Message);
        
             return;
         }
