@@ -16,15 +16,12 @@ public class Connection : IDisposable
     private readonly ILogger<IPlugin>? _logger;
     private readonly string _server;
     private readonly int _port;
-    private readonly object _syncRoot = new();
     private bool _disposed;
 
     public bool isConnected
     {
         get
         {
-            lock (_syncRoot)
-            {
                 if (_redis?.IsConnected == false)
                 {
                     LogOnce("Redis connection lost.", isError: true);
@@ -33,7 +30,6 @@ public class Connection : IDisposable
                     return false;
                 }
                 return true;
-            }
         }
     }
 
@@ -63,8 +59,6 @@ public class Connection : IDisposable
     [DebuggerNonUserCode]
     public void Connect()
     {
-        lock (_syncRoot)
-        {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(Connection));
 
@@ -118,39 +112,49 @@ public class Connection : IDisposable
                 OnConnectionChange?.Invoke(this, false);
                 _redis = null;
             }
-        }
     }
 
-    public List<string> Keys(RedisPrefixes prefix = RedisPrefixes.DATA )
+    public List<string> Keys(RedisPrefixes prefix = RedisPrefixes.DATA)
     {
-        var endpoint = _redis?.GetEndPoints().First();
-        var server = _redis?.GetServer(endpoint);
+        var endpoint = _redis?.GetEndPoints().FirstOrDefault();
+        var server = endpoint != null ? _redis?.GetServer(endpoint) : null;
 
-        return server?.Keys(pattern: $"{prefix.ToString()}:*").Select(k => k.ToString()).ToList() ?? [];
+        string prefixString = $"{prefix}:";
+
+        return server?.Keys(pattern: $"{prefixString}*")
+            .Select(k => k.ToString().StartsWith(prefixString)
+                ? k.ToString().Substring(prefixString.Length)
+                : k.ToString())
+            .ToList() ?? [];
     }
 
-    public void Write(string key, string value , RedisPrefixes prefix = RedisPrefixes.DATA )
+    public void Delete(string key, RedisPrefixes prefix )
     {
-        lock (_syncRoot)
-        {
-            if (!isConnected) Connect();
             try
             {
+                var deleted = db?.KeyDelete( $"{prefix.ToString()}:{key}") ?? false;
+                _logger?.LogDebug($"Deleted key {key} from Redis: {deleted}");
+             }
+            catch (Exception ex)
+            {
+                LogOnce($"Error deleting from Redis: {ex.Message}");
+            }
+    }
+    public void Write(string key, string value , RedisPrefixes prefix = RedisPrefixes.DATA )
+    {
+            try
+            {
+                _logger?.LogDebug($"Attempting to write : {prefix.ToString()}:{key} = {value}");
                 db?.StringSet( $"{prefix.ToString()}:{key}", value);
             }
             catch (Exception ex)
             {
                 LogOnce($"Error writing to Redis: {ex.Message}");
             }
-        }
     }
 
     public string? Read(string key, RedisPrefixes prefix = RedisPrefixes.DATA )
     {
-        lock (_syncRoot)
-        {
-            if (!isConnected) Connect();
-
             try
             {
                 if (db != null)
@@ -166,13 +170,11 @@ public class Connection : IDisposable
                 LogOnce($"Error reading from Redis: {ex.Message}");
                 return null;
             }
-        }
     }
+
 
     public void Dispose()
     {
-        lock (_syncRoot)
-        {
             if (_disposed) return;
             try
             {
@@ -187,6 +189,5 @@ public class Connection : IDisposable
             _redis = null;
             db = null;
             _disposed = true;
-        }
     }
 }
