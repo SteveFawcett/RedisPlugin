@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using RedisPlugin.Classes;
 using RedisPlugin.Forms;
 using RedisPlugin.Properties;
+using System.Drawing;
 using System.Text.Json;
 
 namespace RedisPlugin;
@@ -14,7 +15,7 @@ namespace RedisPlugin;
 public class RedisCache : BroadcastCacheBase, IDisposable
 {
     private const string STANZA = "Redis";
-    private static readonly Image s_icon = Resources.red;
+    private static Image s_icon = Resources.red;
     private readonly ILogger<IPlugin>? _logger;
 
 #pragma warning disable CS8618
@@ -39,7 +40,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         double ReconnectRate = config.GetValue<int?>("ReconnectRate") ?? 1000;
         double JobScanRate = config.GetValue<int?>("JobScanRate") ?? 10000;
 
-        _connection = new(logger, config);
+        _connection = new( logger, config);
         _connection.OnConnectionChange += Connection_OnConnectionChange;
 
         PeriodicTimer timer1 = new PeriodicTimer(TimeSpan.FromMilliseconds(ReconnectRate));
@@ -66,6 +67,8 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         _logger?.LogDebug("Timer elapsed, checking Redis connection {state}", _connection.isConnected );
 
         if ( _connection.isConnected == false ) _connection.Connect();
+
+        SetState( _connection.isConnected );
     }
 
     private void JobScanner()
@@ -92,19 +95,17 @@ public class RedisCache : BroadcastCacheBase, IDisposable
     private void Connection_OnConnectionChange(object? sender, bool isConnected)
     {
         _logger?.LogDebug($"Redis connection status changed: {(isConnected ? "Connected" : "Disconnected")}");
-        _infoPage?.SetState(isConnected);
-        if (isConnected)
-        {
-            if (_infoPage != null)
-            {
-                _infoPage.URL = $"{_connection.Server}:{_connection.Port}";
-                _infoPage.Connection = _connection;
-            }
-        }
-        else
-        {
-            if (_infoPage != null) _infoPage.URL = $"Connecting to: {_connection.Server}:{_connection.Port}";
-        }
+        SetState(isConnected);
+    }
+
+    public void SetState( bool isConnected = false)
+    {
+        _infoPage?.UpdateInfoPage(_connection);
+
+        s_icon = isConnected ? Resources.green : Resources.red;
+        
+        ImageChangedInvoke( s_icon);
+
     }
 
     public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration)

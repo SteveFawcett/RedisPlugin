@@ -1,8 +1,10 @@
-﻿using System.Diagnostics;
-using BroadcastPluginSDK.Interfaces;
+﻿using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using RedisPlugin.Forms;
 using StackExchange.Redis;
+using System.Diagnostics;
+using System.Net;
 
 namespace RedisPlugin.Classes;
 
@@ -278,5 +280,38 @@ public class Connection : IDisposable
             _redis = null;
             db = null;
             _disposed = true;
+    }
+
+    internal IEnumerable<KeyValuePair<string,string>> GetKeysByPrefix(RedisPrefixes? prefix = null)
+    {
+        if (!isConnected)
+        {
+            _logger?.LogWarning("Cannot retrieve keys: Not connected to Redis.");
+            yield break;
+        }
+
+        if ( _redis == null )
+        {
+            _logger?.LogWarning("Cannot retrieve keys: Redis connection is null.");
+            yield break;
+        }
+
+        string prefixString = prefix is null ? "*:" : $"{prefix.ToString()}:";
+        _logger?.LogDebug("Retrieving keys with prefix: {prefix}", prefixString);
+
+        var endpoint = _redis.GetEndPoints().FirstOrDefault();
+        var server =   _redis.GetServer(endpoint);
+
+        foreach (var key in server.Keys(pattern: $"{prefixString}*"))
+        {           
+            string? value = db?.StringGet(key) ?? string.Empty;
+            
+            if ( string.IsNullOrEmpty(value))
+                continue;
+
+            yield return new KeyValuePair<string, string>(key, value);
+        }
+
+        yield break;
     }
 }
