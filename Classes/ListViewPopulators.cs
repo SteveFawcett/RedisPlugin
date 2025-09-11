@@ -1,16 +1,29 @@
 ﻿using BroadcastPluginSDK.Classes;
 using System.Text.Json;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace RedisPlugin.Classes
 {
+    enum populatorType
+    {
+        Raw = 0,
+        Simple = 1,
+        Command = 2,
+        Default = 99
+    }
+
     internal static class ListViewPopulators
     {
+        static populatorType _type = populatorType.Default;
         static public void Raw( ListView listView, Connection items , RedisPrefixes? prefix)
         {
-            listView.Columns.Clear();
-            listView.Columns.Add("Key", 50);
-            listView.Columns.Add("Value", 50);
+            if (_type != populatorType.Raw)
+            {
+                _type = populatorType.Raw;
+                AddListColumns(listView, ["Key", "Value"]);
+            }
 
+            listView.Items.Clear();
             int count = 0;
             foreach (var kvp in items.GetKeysByPrefix(prefix))
             {
@@ -26,15 +39,17 @@ namespace RedisPlugin.Classes
                 listView.AutoResizeColumns(ColumnHeaderAutoResizeStyle.ColumnContent);
             else
                 listView.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+            ResizeColumns(listView);
         }
 
         static public void Command(ListView listView, Connection items, RedisPrefixes prefix)
         {
-            listView.Columns.Clear();
-            listView.Columns.Add("id", 50);
-            listView.Columns.Add("Command", 50);
-            listView.Columns.Add("Status", 50);
-            listView.Columns.Add("Started", 50);
+            if (_type != populatorType.Command)
+            {
+                _type = populatorType.Command;
+                AddListColumns(listView, ["Id", "Command" , "Status" , "Started"]);
+            }
+            listView.Items.Clear();
 
             int count = 0;
             foreach (var kvp in items.GetKeysByPrefix(prefix))
@@ -63,20 +78,26 @@ namespace RedisPlugin.Classes
                 listView.AutoResizeColumns(ColumnHeaderAutoResizeStyle.ColumnContent);
             else
                 listView.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+            ResizeColumns(listView);
         }
+
 
         static public void Simple(ListView listView, Connection items, RedisPrefixes prefix)
         {
-            listView.Columns.Clear();
-            listView.Columns.Add("Key", 50);
-            listView.Columns.Add("Value", 50);
+            if (_type != populatorType.Simple)
+            {
+                _type = populatorType.Simple;
+                AddListColumns(  listView , [ "Key", "Value"]);
+            }
+
+            listView.Items.Clear();
 
             int count = 0;
             foreach (var kvp in items.GetKeysByPrefix(prefix))
             {
                 string clean_name = kvp.Key.Replace( $"{prefix.ToString()}:" , "" );
                 var item = new ListViewItem(clean_name);
-
+                
                 item.SubItems.Add(kvp.Value);
 
                 listView.Items.Add(item);
@@ -88,6 +109,36 @@ namespace RedisPlugin.Classes
                 listView.AutoResizeColumns(ColumnHeaderAutoResizeStyle.ColumnContent);
             else
                 listView.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
+            ResizeColumns(listView);
+
+        }
+
+        static void ResizeColumns(ListView listView)
+        {
+            foreach (ColumnHeader column in listView.Columns)
+            {
+                Size textSize = TextRenderer.MeasureText(column.Text, listView.Font);
+                if (column.Width < textSize.Width + 20) // Add some padding
+                {
+                    column.Width = textSize.Width + 20;
+                }
+
+            }
+        }
+
+        static public void AddListColumns(ListView listView, List<string> items)
+        {
+            listView.Columns.Clear();
+            foreach (var item in items)
+            {
+                ColumnHeader header = new ColumnHeader();
+                Size textSize = TextRenderer.MeasureText(item, listView.Font);
+                
+                header.Text = item;
+                header.Width = textSize.Width + 20; // Add some padding
+
+                listView.Columns.Add(header);
+            }
         }
     }
 }

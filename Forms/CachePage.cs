@@ -98,7 +98,6 @@ public partial class CachePage : UserControl, IInfoPage
 
         listView1.BeginUpdate();
 
-        listView1.Items.Clear();
         if (_connection != null && _connection.isConnected)
         {
             switch (prefix)
