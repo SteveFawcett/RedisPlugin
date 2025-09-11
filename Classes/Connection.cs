@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using BroadcastPluginSDK.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -9,7 +10,7 @@ public class Connection : IDisposable
 {
     private const int PORT = 6379;
     private const string SERVER = "localhost";
-    private const int REDIS_TIMEOUT = 10000; // 5 seconds
+    private const int REDIS_TIMEOUT = 60000; // 5 seconds
 
     private ConnectionMultiplexer? _redis;
     private IDatabase? db;
@@ -22,14 +23,22 @@ public class Connection : IDisposable
     {
         get
         {
-                if (_redis?.IsConnected == false)
-                {
-                    LogOnce("Redis connection lost.", isError: true);
-                    db = null;
-                    OnConnectionChange?.Invoke(this, false);
-                    return false;
-                }
-                return true;
+            _logger?.LogDebug("Checking connection is {state}" , _redis?.IsConnected ?? false );
+            if( _redis == null )
+            {
+                db = null;
+                OnConnectionChange?.Invoke(this, false);
+                return false;
+            }
+            //_logger?.LogInformation("Multiplexer is Status: {status} , Counters {counters}.", _redis?.GetStatus(), _redis?.GetCounters());
+            if ( ! _redis.IsConnected )
+            {
+                _logger?.LogWarning("Triggering Lost Connection {state}", _redis.IsConnected );
+                db = null;
+                OnConnectionChange?.Invoke(this, false);
+                return false;
+            }
+            return true;
         }
     }
 
@@ -49,28 +58,33 @@ public class Connection : IDisposable
         _lastmessage = message;
     }
 
-    public Connection(ILogger<IPlugin>? logger, string server = SERVER, int port = PORT)
+    public Connection(ILogger<IPlugin>? logger, IConfiguration configuration)
     {
         _logger = logger;
-        _server = server ?? SERVER;
-        _port = port;
+        _server = configuration.GetValue<string>("Server") ?? SERVER;
+        _port = configuration.GetValue<int>("Port");
+        var _flush = configuration.GetValue<bool>("FlushOnStartUp");
+
+        _logger?.LogInformation($"Instance created with {_server}:{_port}");
+        Connect();
+        if( _flush )flush();
     }
 
     [DebuggerNonUserCode]
     public void Connect()
     {
-            if (_disposed)
+        if (_disposed)
                 throw new ObjectDisposedException(nameof(Connection));
 
-            if (_redis != null && _redis.IsConnected)
+        if ( isConnected )
             {
                 // Already connected
-                return;
+                _logger?.LogWarning("Already connected to Redis, skipping Connect()");
+                 return;
             }
         
             var config = new ConfigurationOptions
-            {
-                EndPoints = { $"{_server}:{_port}" },
+            { 
                 ConnectTimeout = REDIS_TIMEOUT,
                 AbortOnConnectFail = false,
                 AllowAdmin = true,
@@ -78,16 +92,22 @@ public class Connection : IDisposable
                 KeepAlive = 180
             };
 
+            config.EndPoints.Add(_server, _port);
+
             try
             {
-                _logger?.LogDebug($"Attempting to connect to {config.EndPoints}");
+                _logger?.LogInformation($"Attempting to connect to {config.EndPoints.FirstOrDefault()}");
 
-                _redis = ConnectionMultiplexer.Connect(config);
+                do {
+                    _redis = ConnectionMultiplexer.Connect(config);
+                    _logger?.LogInformation($"Redis connection state: IsConnected={_redis.IsConnected}, IsConnecting={_redis.IsConnecting}" );
+                }
+                while ( _redis.IsConnecting == true ) ;
 
-                if ( _redis != null)
+                if ( _redis.IsConnected == true )
                 {
                     db = _redis.GetDatabase();
-                    LogOnce($"Successfully connected to Redis database {_redis.ClientName}", isError: false);
+                    _logger?.LogInformation($"Successfully connected to Redis database {_redis.ClientName}");
                     OnConnectionChange?.Invoke(this, true);
                 }
                 else
@@ -114,62 +134,131 @@ public class Connection : IDisposable
             }
     }
 
-    public List<string> Keys(RedisPrefixes prefix = RedisPrefixes.DATA)
+    public void flush()
     {
+        if (!isConnected)
+        {
+            _logger?.LogWarning("Cannot flush Redis: Not connected.");
+            return;
+        }
+        try
+        {
+            var endpoint = _redis?.GetEndPoints().FirstOrDefault();
+            if (endpoint == null)
+            {
+                _logger?.LogWarning("Cannot flush Redis: No Redis endpoints available.");
+                return;
+            }
+            var server = endpoint != null ? _redis?.GetServer(endpoint) : null;
+            if (server == null)
+            {
+                _logger?.LogWarning("Cannot flush Redis: No Redis server available.");
+                return;
+            }
+            server.FlushDatabase();
+            _logger?.LogInformation("Flushed all keys from Redis database.");
+        }
+        catch (Exception ex)
+        {
+            LogOnce($"Error flushing Redis: {ex.Message}");
+        }
+    }
+    public IEnumerable<string> Keys(RedisPrefixes prefix = RedisPrefixes.DATA)
+    {
+        if ( !isConnected)
+        {
+            _logger?.LogWarning("Cannot retrieve keys: Not connected to Redis.");
+            yield break;
+        }
+
+        foreach (var ep in _redis?.GetEndPoints() ?? [] )
+        {
+            var s = _redis?.GetServer(ep);
+
+            _logger?.LogDebug($"Server at {ep} - IsConnected: {s?.IsConnected}" );
+        }
+
         var endpoint = _redis?.GetEndPoints().FirstOrDefault();
+
+        if ( endpoint == null )
+        {
+            _logger?.LogWarning("Cannot retrieve keys: No Redis endpoints available.");
+            yield break;
+        }
+
         var server = endpoint != null ? _redis?.GetServer(endpoint) : null;
+
+        if( server == null)
+        {
+            _logger?.LogWarning("Cannot retrieve keys: No Redis server available.");
+            yield break;
+        }
 
         string prefixString = $"{prefix}:";
 
-        return server?.Keys(pattern: $"{prefixString}*")
-            .Select(k => k.ToString().StartsWith(prefixString)
-                ? k.ToString().Substring(prefixString.Length)
-                : k.ToString())
-            .ToList() ?? [];
+        foreach (var key in server.Keys(pattern: $"{prefixString}*"))
+        {
+            _logger?.LogDebug($"Found key: {key}");
+            yield return key.ToString().Replace(prefixString, string.Empty);
+        }
     }
 
     public void Delete(string key, RedisPrefixes prefix )
     {
-            try
-            {
-                var deleted = db?.KeyDelete( $"{prefix.ToString()}:{key}") ?? false;
-                _logger?.LogDebug($"Deleted key {key} from Redis: {deleted}");
-             }
-            catch (Exception ex)
-            {
-                LogOnce($"Error deleting from Redis: {ex.Message}");
-            }
+        if (!isConnected)
+        {
+            _logger?.LogWarning("Cannot delete from Redis: Not connected.");
+            return;
+        }
+
+        try
+        {
+            var deleted = db?.KeyDelete( $"{prefix.ToString()}:{key}") ?? false;
+            _logger?.LogDebug($"Deleted key {key} from Redis: {deleted}");
+        }
+        catch (Exception ex)
+        {
+            LogOnce($"Error deleting from Redis: {ex.Message}");
+        }
     }
     public void Write(string key, string value , RedisPrefixes prefix = RedisPrefixes.DATA )
     {
-            try
-            {
-                _logger?.LogDebug($"Attempting to write : {prefix.ToString()}:{key} = {value}");
-                db?.StringSet( $"{prefix.ToString()}:{key}", value);
-            }
-            catch (Exception ex)
-            {
-                LogOnce($"Error writing to Redis: {ex.Message}");
-            }
+        if( !isConnected)
+        {
+            _logger?.LogWarning("Cannot write to Redis: Not connected.");
+            return;
+        }
+
+        try
+        {
+            _logger?.LogDebug($"Attempting to write : {prefix.ToString()}:{key} = {value}");
+            db?.StringSet( $"{prefix.ToString()}:{key}", value);
+        }
+        catch (Exception ex)
+        {
+            LogOnce($"Error writing to Redis: {ex.Message}");
+        }
     }
 
     public string? Read(string key, RedisPrefixes prefix = RedisPrefixes.DATA )
     {
-            try
-            {
-                if (db != null)
-                {
-                    _logger?.LogDebug($"Attempting to get : {prefix.ToString()}:{key}");
-                    var value = db.StringGet($"{prefix.ToString()}:{key}");
-                    return value.HasValue ? (string?)value : null;
-                }
-                return null;
-            }
-            catch (Exception ex)
-            {
-                LogOnce($"Error reading from Redis: {ex.Message}");
-                return null;
-            }
+        if ( !isConnected )
+        {
+            _logger?.LogWarning("Cannot write to Redis: Not connected.");
+            return string.Empty;
+        }
+
+        try
+        {
+            _logger?.LogDebug($"Attempting to get : {prefix.ToString()}:{key}");
+            var value = db?.StringGet($"{prefix.ToString()}:{key}");
+            return value.HasValue ? (string?)value : null;
+        }
+        catch (Exception ex)
+        {
+            LogOnce($"Error reading from Redis: {ex.Message}");
+            return null;
+        }
     }
 
 

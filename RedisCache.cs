@@ -8,14 +8,12 @@ using RedisPlugin.Classes;
 using RedisPlugin.Forms;
 using RedisPlugin.Properties;
 using System.Text.Json;
-using System.Timers;
 
 namespace RedisPlugin;
 
 public class RedisCache : BroadcastCacheBase, IDisposable
 {
     private const string STANZA = "Redis";
-    private System.Threading.Timer? Timer;
     private static readonly Image s_icon = Resources.red;
     private readonly ILogger<IPlugin>? _logger;
 
@@ -32,42 +30,81 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         base(configuration, LoadCachePage(logger, configuration), s_icon, STANZA)
     {
         _logger = logger;
+        _logger.LogInformation("REDIS Plugin Initializing ... ");
 
-        var port = configuration.GetSection(STANZA).GetValue<int>("port");
-        var server = configuration.GetSection(STANZA).GetValue<string>("server") ?? string.Empty;
+        var config = configuration.GetSection(STANZA);
 
-            _connection = new(logger, server, port);
-            _connection.OnConnectionChange += Connection_OnConnectionChange;
-        
+        var port = config.GetValue<int>("port");
+        var server = config.GetValue<string>("server") ?? string.Empty;
+        double ReconnectRate = config.GetValue<int?>("ReconnectRate") ?? 1000;
+        double JobScanRate = config.GetValue<int?>("JobScanRate") ?? 10000;
 
-        Timer = new System.Threading.Timer(
-            callback => Timer_Elapsed(),
-            null,
-            dueTime: 0,         // 🔥 Fire immediately
-            period: 10000
-        );
+        _connection = new(logger, config);
+        _connection.OnConnectionChange += Connection_OnConnectionChange;
+
+        PeriodicTimer timer1 = new PeriodicTimer(TimeSpan.FromMilliseconds(ReconnectRate));
+        _ = Task.Run(async () =>
+        {
+            while (await timer1.WaitForNextTickAsync())
+            {
+                Reconnector();
+            }
+        });
+
+        PeriodicTimer timer2 = new PeriodicTimer(TimeSpan.FromMilliseconds(JobScanRate));
+        _ = Task.Run(async () =>
+        {
+            while (await timer2.WaitForNextTickAsync())
+            {
+                JobScanner();
+            }
+        });
     }
 
-    private void Timer_Elapsed()
+    private void Reconnector()
     {
-        _logger?.LogDebug("Timer elapsed, checking Redis connection...");
+        _logger?.LogDebug("Timer elapsed, checking Redis connection {state}", _connection.isConnected );
 
-            _connection.Connect();
-      
+        if ( _connection.isConnected == false ) _connection.Connect();
     }
 
+    private void JobScanner()
+    {      
+        var cutoff = DateTime.UtcNow.AddMinutes(-10);
+
+        if (_connection.isConnected == true)
+        {
+            _logger?.LogDebug("Timer elapsed, checking for completed Jobs");
+
+            foreach (var jobs in CommandReader(CommandStatus.Completed))
+            {
+                var completed = jobs.UpdatedAt ?? jobs.CreatedAt;
+
+                _logger?.LogInformation("Processing completed command: {Id} : {completed} < {cutoff}", jobs.Id, completed, cutoff);
+                if (completed < cutoff)
+                {
+                    _logger?.LogInformation("Deleting old completed command: {Id}", jobs.Id);
+                    _connection.Delete(jobs.Id, RedisPrefixes.COMMAND);
+                }
+            }
+        }
+    }
     private void Connection_OnConnectionChange(object? sender, bool isConnected)
     {
         _logger?.LogDebug($"Redis connection status changed: {(isConnected ? "Connected" : "Disconnected")}");
-            _infoPage?.SetState(isConnected);
-            if (isConnected)
+        _infoPage?.SetState(isConnected);
+        if (isConnected)
+        {
+            if (_infoPage != null)
             {
-                if (_infoPage != null) _infoPage.URL = $"{_connection.Server}:{_connection.Port}";
+                _infoPage.URL = $"{_connection.Server}:{_connection.Port}";
+                _infoPage.Connection = _connection;
             }
-            else
-            {
-                if (_infoPage != null) _infoPage.URL = $"Connecting to: {_connection.Server}:{_connection.Port}";
-            }
+        }
+        else
+        {
+            if (_infoPage != null) _infoPage.URL = $"Connecting to: {_connection.Server}:{_connection.Port}";
+        }
     }
 
     public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration)
@@ -82,28 +119,25 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         //TODO: Not Implemented yet
     }
 
-    public override void CacheWriter(Dictionary<string, string> data) => InternalCacheWriter(data, RedisPrefixes.DATA);
-    
+    public override void CacheWriter(Dictionary<string, string> data)
+    {
+        foreach (var kvp in data)
+            InternalCacheWriter(kvp, RedisPrefixes.DATA);
+    }
 
-    private void InternalCacheWriter(Dictionary<string, string> data, RedisPrefixes prefix = RedisPrefixes.DATA)
+    private void InternalCacheWriter(KeyValuePair<string, string> kvp, RedisPrefixes prefix = RedisPrefixes.DATA)
     {
         try
         {
-                if (!_connection.isConnected) _connection.Connect();
+            if ( _connection.isConnected)
+            {
+                if( prefix == RedisPrefixes.COMMAND )
+                    _logger?.LogDebug("Writing Command: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
+                else
+                    _logger?.LogDebug("Writing Data: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
 
-                if ( _connection.isConnected)
-                {
-                    foreach (var kvp in data)
-                    {
-                        if( prefix == RedisPrefixes.COMMAND )
-                            _logger?.LogDebug("Writing Command: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
-                        else
-                            _logger?.LogDebug("Writing Data: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
-
-                        _connection?.Write(kvp.Key, kvp.Value , prefix);
-                    }
-                    _infoPage?.Redraw(data);
-                }
+                _connection?.Write(kvp.Key, kvp.Value , prefix);   
+            }
         }
         catch (Exception ex)
         {
@@ -112,16 +146,14 @@ public class RedisCache : BroadcastCacheBase, IDisposable
     }
 
     public override List<KeyValuePair<string, string>> CacheReader(List<string> values) => InternalCacheReader(values , RedisPrefixes.DATA);
-    public override List<CommandItem> CommandReader( BroadcastPluginSDK.Classes.CommandStatus status)
+    public override IEnumerable<CommandItem> CommandReader( BroadcastPluginSDK.Classes.CommandStatus status)
     {
-        _logger?.LogDebug("Starting CommandReader with status: {Status}", status);
-        List<CommandItem> commands = new();
-        var requests = Read(RedisPrefixes.COMMAND);
+        _logger?.LogDebug("Starting CommandReader for status: {Status}", status);
 
-        _logger?.LogDebug("Reading commands from Redis, total found: {Count}", requests.Count());
-
-        foreach (var kvp in requests)
+        foreach (var kvp in Read(RedisPrefixes.COMMAND))
         {
+            CommandItem item ;
+
             _logger?.LogDebug("Deserializing command: {Key}", kvp.Key);
 
             if( string.IsNullOrWhiteSpace(kvp.Value) )
@@ -133,16 +165,14 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
             try
             {
-                CommandItem? item = JsonSerializer.Deserialize<CommandItem>(kvp.Value);
+                if( string.IsNullOrEmpty(kvp.Value) ) throw new JsonException("Value is null or empty");
+
+                item = JsonSerializer.Deserialize<CommandItem>(kvp.Value) ?? throw new JsonException("Deserialization returned null");
+
                 _logger?.LogDebug("Deserialized command: {Item}", item != null ? item.Id : "null");
-                if (item != null && item.Status == status)
-                {
-                    _logger?.LogDebug("Adding command to list: {Item}", item.Id);
-                    commands.Add(item);
-                }
             }
             catch (JsonException jsonEx)
-            {
+            { 
                 _logger?.LogError(jsonEx, "JSON deserialization error for key {Key}", kvp.Key );
                 _connection.Delete(kvp.Key , RedisPrefixes.COMMAND );
                 continue;
@@ -152,9 +182,22 @@ public class RedisCache : BroadcastCacheBase, IDisposable
                 _logger?.LogError(ex, "Unexpected error deserializing key {Key}:", kvp.Key);
                 continue;
             }
+
+            if (item != null && item.Status == status)
+            {
+                _logger?.LogInformation("Adding command to list: {Item} {command}", item.Id, item.Command.ToString());
+
+                yield return item;
+
+                // If the command is new, update its status to InProgress
+                item.Status = CommandStatus.InProgress;
+                item.UpdatedAt = DateTime.UtcNow;
+
+                CommandWriter(item);
+            }
         }
 
-        return commands;
+        yield break;
     }
     public override void CommandWriter(CommandItem data)
     {
@@ -164,7 +207,8 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
         _logger?.LogDebug("Serializing command: {Id}", data.Id);
         _logger?.LogDebug("Serialized JSON: {Json}", json);
-        InternalCacheWriter(new Dictionary<string, string> { { data.Id, json } }, RedisPrefixes.COMMAND);
+        InternalCacheWriter(new KeyValuePair<string, string>( data.Id, json ), RedisPrefixes.COMMAND);
+        _logger?.LogDebug("CommandWriter completed for command: {Id}", data.Id);
     }
     private List<KeyValuePair<string, string>> InternalCacheReader(List<string> values, RedisPrefixes prefix = RedisPrefixes.DATA)
     {
@@ -179,8 +223,6 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     public IEnumerable<KeyValuePair<string, string>> Read( RedisPrefixes prefix = RedisPrefixes.DATA)
     {
-            if (!_connection.isConnected) _connection.Connect();
-
             if (_connection.isConnected)
             {
                 _logger?.LogDebug("Read: Connected to Redis database.");
@@ -196,7 +238,6 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             {
                 _logger?.LogDebug("ReadValue: Reading {key}" , value );
                 var data = new KeyValuePair<string, string>(value, _connection.Read(value , prefix) ?? string.Empty);
-                _infoPage?.Redraw(data);
                 return data;
             }
             return new KeyValuePair<string, string>(value, string.Empty);
@@ -215,10 +256,6 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         if (disposing)
         {
 
-                if (Timer != null)
-                {
-                    Timer.Dispose();
-                }
                 if (_connection != null)
                 {
                     _connection.Dispose();
