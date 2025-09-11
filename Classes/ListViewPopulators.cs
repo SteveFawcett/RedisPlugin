@@ -44,7 +44,17 @@ namespace RedisPlugin.Classes
                 lv.SubItems.Add(item.Command.ToString());
                 lv.SubItems.Add(item.Status.ToString());    
                 lv.SubItems.Add(item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
-                listView.Items.Add( lv );
+
+                if( item.Status == CommandStatus.InProgress )
+                    lv.BackColor = System.Drawing.ColorTranslator.FromHtml("#D0F0C0"); //tea green
+                else if( item.Status == CommandStatus.Completed )
+                    lv.BackColor = System.Drawing.Color.LightGray;
+                else if( item.Status == CommandStatus.Failed )
+                    lv.BackColor = System.Drawing.Color.LightCoral;
+                else if (item.Status == CommandStatus.New)
+                    lv.BackColor = System.Drawing.Color.AliceBlue;
+
+                listView.Items.Add(lv);
 
                 count++;
             }
