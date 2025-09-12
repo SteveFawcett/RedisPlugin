@@ -113,10 +113,6 @@ public partial class CachePage : UserControl, IInfoPage
                     break;
             }
         }
-        else
-        {
-            _logger?.LogWarning("No connection to populate list view");
-        }
 
         listView1.EndUpdate();
     }
