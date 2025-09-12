@@ -12,7 +12,7 @@ public class Connection : IDisposable
 {
     private const int PORT = 6379;
     private const string SERVER = "localhost";
-    private const int REDIS_TIMEOUT = 60000; // 5 seconds
+    private const int REDIS_TIMEOUT = 5000; // 5 seconds
 
     private ConnectionMultiplexer? _redis;
     private IDatabase? db;
@@ -246,7 +246,7 @@ public class Connection : IDisposable
     {
         if ( !isConnected )
         {
-            _logger?.LogWarning("Cannot write to Redis: Not connected.");
+            _logger?.LogWarning("Cannot read from Redis: Not connected.");
             return string.Empty;
         }
 

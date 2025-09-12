@@ -108,9 +108,9 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     }
 
-    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration)
+    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration, object connection)
     {
-            _infoPage = new CachePage(logger, _connection);
+            _infoPage = new CachePage(logger, connection);
             return _infoPage;
 
     }
@@ -166,8 +166,6 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
             try
             {
-                if( string.IsNullOrEmpty(kvp.Value) ) throw new JsonException("Value is null or empty");
-
                 item = JsonSerializer.Deserialize<CommandItem>(kvp.Value) ?? throw new JsonException("Deserialization returned null");
 
                 _logger?.LogDebug("Deserialized command: {Item}", item != null ? item.Id : "null");
