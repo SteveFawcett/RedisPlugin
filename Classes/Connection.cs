@@ -246,7 +246,7 @@ public class Connection : IDisposable
     {
         if ( !isConnected )
         {
-            _logger?.LogWarning("Cannot write to Redis: Not connected.");
+            _logger?.LogWarning("Cannot read from Redis: Not connected.");
             return string.Empty;
         }
 
