@@ -28,7 +28,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
     public RedisCache() : base() { }
 
     public RedisCache(IConfiguration configuration, ILogger<IPlugin> logger) :
-        base(configuration, LoadCachePage(logger, configuration), s_icon, STANZA)
+        base(configuration, LoadCachePage(logger, configuration , _connection ), s_icon, STANZA)
     {
         _logger = logger;
         _logger.LogInformation("REDIS Plugin Initializing ... ");
@@ -108,9 +108,9 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     }
 
-    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration, object connection)
+    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration, Connection conn)
     {
-            _infoPage = new CachePage(logger, connection);
+            _infoPage = new CachePage(logger, conn);
             return _infoPage;
 
     }

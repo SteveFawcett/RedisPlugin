@@ -67,7 +67,6 @@ jobs:
     - name: Package into ZIP
       run: dotnet msbuild
              -restore
-             -t:Publish
              -p:Configuration=${{ matrix.configuration }} 
              -p:OutputDirectory="${{ env.OutputDirectory }}" 
              -p:AssemblyVersion="${{ env.Version }}"
