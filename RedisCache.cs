@@ -108,9 +108,9 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     }
 
-    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration)
+    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration, object connection)
     {
-            _infoPage = new CachePage(logger, _connection);
+            _infoPage = new CachePage(logger, connection);
             return _infoPage;
 
     }
