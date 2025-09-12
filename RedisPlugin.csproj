@@ -6,11 +6,17 @@
 		<UseWindowsForms>true</UseWindowsForms>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-		<PackageDir Condition="'$(PackageDir)' == ''">$([System.IO.Path]::Combine($(OutputPath),'package'))/</PackageDir>
-		<OutputDirectory>.</OutputDirectory>
-		<AssemblyVersion>0.1.2</AssemblyVersion>
+
+		<PlatformTarget>x64</PlatformTarget>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<Prefer32Bit>false</Prefer32Bit>
+
+		<OutputDirectory>$(AppData)\Broadcast\Plugins\</OutputDirectory>
+		<PackageDir Condition="'$(PackageDir)' == ''">$([System.IO.Path]::Combine($(OutputDirectory),''))/</PackageDir>
 		<PackageFileName>$(AssemblyName)-v$(AssemblyVersion).zip</PackageFileName>
-		<PackagePath>$(OutputDirectory)\$(PackageFileName)</PackagePath>
+		<PackagePath>$(PackageDir)\$(PackageFileName)</PackagePath>
+		<RemotePath>Z:\Plugins</RemotePath>
+		<AssemblyVersion>1.0.0</AssemblyVersion>
 		<SupportedOSPlatformVersion>8.0</SupportedOSPlatformVersion>
 		<RepositoryType>git</RepositoryType>
 		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
@@ -18,8 +24,12 @@
 		<PackageTags>simulator;broadcast</PackageTags>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageIcon>airplane.png</PackageIcon>
-		<PackageProjectUrl>https://github.com/SteveFawcett/TestPlugin</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/SteveFawcett/TestPlugin</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/SteveFawcett/</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/SteveFawcett/</RepositoryUrl>
+		<Platforms>x64</Platforms>
+		<Title>Redis Cache</Title>
+		<Authors>$(Authors)</Authors>
+		<Company>SteveFawcett</Company>
 	</PropertyGroup>
 
 	<Target Name="AutoPackage" AfterTargets="Publish">
@@ -47,9 +57,14 @@
 			</DynamicContent>
 		</ItemGroup>
 	</Target>
+
+	<Target Name="Deliver" AfterTargets="Publish">
+		<Message Importance="High" Text="📦 Copying to remote [$(RemotePath)] " />
+		<Copy SourceFiles="$(PackagePath)" DestinationFolder="$(RemotePath)" />
+	</Target>
 	
   <ItemGroup>
-    <PackageReference Include="StackExchange.Redis" Version="2.9.11" />
+    <PackageReference Include="StackExchange.Redis" Version="2.9.17" />
   </ItemGroup>
 
 	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
@@ -57,11 +72,11 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(Configuration)' == 'Release'">
-		<PackageReference Include="BroadcastPluginSDK" Version="1.0.6" />
+		<PackageReference Include="BroadcastPluginSDK" Version="1.2.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Update="CachePage.cs">
+	  <Compile Update="Forms\CachePage.cs">
 	    <SubType>UserControl</SubType>
 	  </Compile>
 	  <Compile Update="Properties\Resources.Designer.cs">
@@ -69,7 +84,6 @@
 	    <AutoGen>True</AutoGen>
 	    <DependentUpon>Resources.resx</DependentUpon>
 	  </Compile>
-	  <Compile Update="Info.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
