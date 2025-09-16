@@ -10,37 +10,40 @@ namespace RedisPlugin.Classes;
 
 public class Connection : IDisposable
 {
-    private const int PORT = 6379;
     private const string SERVER = "localhost";
-    private const int REDIS_TIMEOUT = 5000; // 5 seconds
+    private const int REDIS_TIMEOUT = 60000; // 60 seconds .. keep this high
 
     private ConnectionMultiplexer? _redis;
     private IDatabase? db;
-    private readonly ILogger<IPlugin>? _logger;
+    private readonly ILogger<RedisCache>? _logger;
     private readonly string _server;
     private readonly int _port;
     private bool _disposed;
+    private bool last_state = false;
 
     public bool isConnected
     {
         get
         {
             _logger?.LogDebug("Checking connection is {state}" , _redis?.IsConnected ?? false );
-            if( _redis == null )
+            if( _redis == null)
             {
                 db = null;
-                OnConnectionChange?.Invoke(this, false);
-                return false;
+                if( last_state ) OnConnectionChange?.Invoke(this, false);
+                last_state = false;
             }
-            //_logger?.LogInformation("Multiplexer is Status: {status} , Counters {counters}.", _redis?.GetStatus(), _redis?.GetCounters());
-            if ( ! _redis.IsConnected )
+            else if ( _redis != null && ! _redis.IsConnected )
             {
                 _logger?.LogWarning("Triggering Lost Connection {state}", _redis.IsConnected );
                 db = null;
-                OnConnectionChange?.Invoke(this, false);
-                return false;
+                if( last_state ) OnConnectionChange?.Invoke(this, false);
+                last_state = false;
             }
-            return true;
+            else
+            {
+                last_state = true;
+            }
+            return last_state;
         }
     }
 
@@ -60,7 +63,7 @@ public class Connection : IDisposable
         _lastmessage = message;
     }
 
-    public Connection(ILogger<IPlugin>? logger, IConfiguration configuration)
+    public Connection(ILogger<RedisCache>? logger, IConfiguration configuration)
     {
         _logger = logger;
         _server = configuration.GetValue<string>("Server") ?? SERVER;

@@ -9,6 +9,7 @@ using RedisPlugin.Forms;
 using RedisPlugin.Properties;
 using System.Drawing;
 using System.Text.Json;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace RedisPlugin;
 
@@ -16,7 +17,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 {
     private const string STANZA = "Redis";
     private static Image s_icon = Resources.red;
-    private readonly ILogger<IPlugin>? _logger;
+    private readonly ILogger<RedisCache>? _logger;
 
 #pragma warning disable CS8618
     private static Connection _connection;
@@ -27,7 +28,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     public RedisCache() : base() { }
 
-    public RedisCache(IConfiguration configuration, ILogger<IPlugin> logger) :
+    public RedisCache(IConfiguration configuration, ILogger<RedisCache> logger) :
         base(configuration, LoadCachePage(logger, configuration , _connection ), s_icon, STANZA)
     {
         _logger = logger;
@@ -108,7 +109,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     }
 
-    public static CachePage LoadCachePage(ILogger<IPlugin> logger, IConfiguration configuration, Connection conn)
+    public static CachePage LoadCachePage(ILogger<RedisCache> logger, IConfiguration configuration, Connection conn)
     {
             _infoPage = new CachePage(logger, conn);
             return _infoPage;

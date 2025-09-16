@@ -14,10 +14,10 @@ public partial class CachePage : UserControl, IInfoPage
     private Image? _icon;
     private string? _name;
     private string? _version;
-    private readonly ILogger<IPlugin> _logger;
+    private readonly ILogger<RedisCache> _logger;
     private Connection _connection;
 
-    public CachePage(ILogger<IPlugin> logger, Connection connection)
+    public CachePage(ILogger<RedisCache> logger, Connection connection)
     {
         _logger = logger;
         _connection = connection;
