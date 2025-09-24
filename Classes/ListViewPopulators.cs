@@ -47,7 +47,7 @@ namespace RedisPlugin.Classes
             if (_type != populatorType.Command)
             {
                 _type = populatorType.Command;
-                AddListColumns(listView, ["Id", "Command" , "Status" , "Started"]);
+                AddListColumns(listView, ["Key", "Value" , "Status" , "Started"]);
             }
             listView.Items.Clear();
 
@@ -55,8 +55,8 @@ namespace RedisPlugin.Classes
             foreach (var kvp in items.GetKeysByPrefix(prefix))
             {
                 CommandItem item = JsonSerializer.Deserialize<CommandItem>(kvp.Value) ?? throw new JsonException("Deserialization returned null");
-                var lv = new ListViewItem(item.Id);
-                lv.SubItems.Add(item.Command.ToString());
+                var lv = new ListViewItem(item.Key);
+                lv.SubItems.Add(item.Value.ToString());
                 lv.SubItems.Add(item.Status.ToString());    
                 lv.SubItems.Add(item.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
 

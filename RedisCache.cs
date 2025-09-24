@@ -84,11 +84,11 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             {
                 var completed = jobs.UpdatedAt ?? jobs.CreatedAt;
 
-                _logger?.LogInformation("Processing completed command: {Id} : {completed} < {cutoff}", jobs.Id, completed, cutoff);
+                _logger?.LogInformation("Processing completed command: {Key} : {completed} < {cutoff}", jobs.Key, completed, cutoff);
                 if (completed < cutoff)
                 {
-                    _logger?.LogInformation("Deleting old completed command: {Id}", jobs.Id);
-                    _connection.Delete(jobs.Id, RedisPrefixes.COMMAND);
+                    _logger?.LogInformation("Deleting old completed command: {Key}", jobs.Key);
+                    _connection.Delete(jobs.Key, RedisPrefixes.COMMAND);
                 }
             }
         }
@@ -134,7 +134,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             if ( _connection.isConnected)
             {
                 if( prefix == RedisPrefixes.COMMAND )
-                    _logger?.LogDebug("Writing Command: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
+                    _logger?.LogDebug("Writing Value: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
                 else
                     _logger?.LogDebug("Writing Data: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
 
@@ -169,7 +169,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             {
                 item = JsonSerializer.Deserialize<CommandItem>(kvp.Value) ?? throw new JsonException("Deserialization returned null");
 
-                _logger?.LogDebug("Deserialized command: {Item}", item != null ? item.Id : "null");
+                _logger?.LogDebug("Deserialized command: {Item}", item != null ? item.Key : "null");
             }
             catch (JsonException jsonEx)
             { 
@@ -185,7 +185,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
             if (item != null && item.Status == status)
             {
-                _logger?.LogInformation("Adding command to list: {Item} {command}", item.Id, item.Command.ToString());
+                _logger?.LogInformation("Adding command to list: {Item} {command}", item.Key, item.Value.ToString());
 
                 yield return item;
 
@@ -201,14 +201,14 @@ public class RedisCache : BroadcastCacheBase, IDisposable
     }
     public override void CommandWriter(CommandItem data)
     {
-        _logger?.LogDebug("Starting CommandWriter for command: {Id}", data.Id);
+        _logger?.LogDebug("Starting CommandWriter for command: {Key}", data.Key);
 
         var json = JsonSerializer.Serialize(data);
 
-        _logger?.LogDebug("Serializing command: {Id}", data.Id);
+        _logger?.LogDebug("Serializing command: {Key}", data.Key);
         _logger?.LogDebug("Serialized JSON: {Json}", json);
-        InternalCacheWriter(new KeyValuePair<string, string>( data.Id, json ), RedisPrefixes.COMMAND);
-        _logger?.LogDebug("CommandWriter completed for command: {Id}", data.Id);
+        InternalCacheWriter(new KeyValuePair<string, string>( data.Key, json ), RedisPrefixes.COMMAND);
+        _logger?.LogDebug("CommandWriter completed for command: {Key}", data.Key);
     }
     private List<KeyValuePair<string, string>> InternalCacheReader(List<string> values, RedisPrefixes prefix = RedisPrefixes.DATA)
     {
