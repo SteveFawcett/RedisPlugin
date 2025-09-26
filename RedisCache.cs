@@ -185,12 +185,6 @@ public class RedisCache : BroadcastCacheBase, IDisposable
                 _logger?.LogInformation("Adding command to list: {Item} {command}", item.Key, item.Value.ToString());
 
                 yield return item;
-
-                // If the command is new, update its status to InProgress
-                item.Status = CommandStatus.InProgress;
-                item.UpdatedAt = DateTime.UtcNow;
-
-                CommandWriter(item);
             }
         }
 
@@ -205,7 +199,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         _logger?.LogDebug("Serializing command: {Key}", data.Key);
         _logger?.LogDebug("Serialized JSON: {Json}", json);
         InternalCacheWriter(new KeyValuePair<string, string>( data.Key, json ), RedisPrefixes.COMMAND);
-        _logger?.LogDebug("CommandWriter completed for command: {Key}", data.Key);
+        _logger?.LogInformation("CommandWriter completed for command: {Key} {status}", data.Key , data.Status.ToString() );
     }
     private List<KeyValuePair<string, string>> InternalCacheReader(List<string> values, RedisPrefixes prefix = RedisPrefixes.DATA)
     {
