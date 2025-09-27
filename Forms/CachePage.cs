@@ -83,7 +83,7 @@ public partial class CachePage : UserControl, IInfoPage
         ComboBoxPrefixes.Items.Add("All");
         ComboBoxPrefixes.SelectedIndex = 0;
 
-        foreach (var prefix in Enum.GetValues(typeof(RedisPrefixes)))
+        foreach (var prefix in Enum.GetValues(typeof(CachePrefixes)))
         {
             string input = prefix.ToString() ?? "Shouldnt be null";
             TextInfo textInfo = CultureInfo.CurrentCulture.TextInfo;
@@ -92,7 +92,7 @@ public partial class CachePage : UserControl, IInfoPage
         }
     }
 
-    private void PopulateListView(RedisPrefixes? prefix)
+    private void PopulateListView(CachePrefixes? prefix)
     {
         _logger?.LogDebug("Populating list view with prefix: {prefix}", prefix.ToString() );
 
@@ -102,11 +102,11 @@ public partial class CachePage : UserControl, IInfoPage
         {
             switch (prefix)
             {
-                case RedisPrefixes.COMMAND:
-                    ListViewPopulators.Command(listView1, _connection, RedisPrefixes.COMMAND);
+                case CachePrefixes.COMMAND:
+                    ListViewPopulators.Command(listView1, _connection, CachePrefixes.COMMAND);
                     break;
-                case RedisPrefixes.DATA:
-                    ListViewPopulators.Simple(listView1, _connection, RedisPrefixes.DATA);
+                case CachePrefixes.DATA:
+                    ListViewPopulators.Simple(listView1, _connection, CachePrefixes.DATA);
                     break;
                 default:
                     ListViewPopulators.Raw(listView1, _connection, prefix);
@@ -127,7 +127,7 @@ public partial class CachePage : UserControl, IInfoPage
                 PopulateListView(null);
                 return;
             }
-            PopulateListView( (RedisPrefixes)Enum.Parse( typeof(RedisPrefixes) , selectedItem.ToUpper() ));
+            PopulateListView( (CachePrefixes)Enum.Parse( typeof(CachePrefixes) , selectedItem.ToUpper() ));
         }
         else
         {

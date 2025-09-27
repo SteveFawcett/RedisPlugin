@@ -168,7 +168,7 @@ public class Connection : IDisposable
             LogOnce($"Error flushing Redis: {ex.Message}");
         }
     }
-    public IEnumerable<string> Keys(RedisPrefixes prefix = RedisPrefixes.DATA)
+    public IEnumerable<string> Keys(CachePrefixes prefix = CachePrefixes.DATA)
     {
         if ( !isConnected)
         {
@@ -208,7 +208,7 @@ public class Connection : IDisposable
         }
     }
 
-    public void Delete(string key, RedisPrefixes prefix )
+    public void Delete(string key, CachePrefixes prefix )
     {
         if (!isConnected)
         {
@@ -226,7 +226,7 @@ public class Connection : IDisposable
             LogOnce($"Error deleting from Redis: {ex.Message}");
         }
     }
-    public void Write(string key, string value , RedisPrefixes prefix = RedisPrefixes.DATA )
+    public void Write(string key, string value , CachePrefixes prefix = CachePrefixes.DATA )
     {
         if( !isConnected)
         {
@@ -245,7 +245,7 @@ public class Connection : IDisposable
         }
     }
 
-    public string? Read(string key, RedisPrefixes prefix = RedisPrefixes.DATA )
+    public string? Read(string key, CachePrefixes prefix = CachePrefixes.DATA )
     {
         if ( !isConnected )
         {
@@ -285,7 +285,7 @@ public class Connection : IDisposable
             _disposed = true;
     }
 
-    internal IEnumerable<KeyValuePair<string,string>> GetKeysByPrefix(RedisPrefixes? prefix = null)
+    internal IEnumerable<KeyValuePair<string,string>> GetKeysByPrefix(CachePrefixes? prefix = null)
     {
         if (!isConnected)
         {

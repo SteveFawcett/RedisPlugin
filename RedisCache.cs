@@ -1,6 +1,7 @@
 ﻿
 using BroadcastPluginSDK.abstracts;
 using BroadcastPluginSDK.Classes;
+using BroadcastPluginSDK.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RedisPlugin.Classes;
@@ -85,7 +86,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
                 if (completed < cutoff)
                 {
                     _logger?.LogInformation("Deleting old completed command: {Key}", jobs.Key);
-                    _connection.Delete(jobs.Key, RedisPrefixes.COMMAND);
+                    _connection.Delete(jobs.Key, CachePrefixes.COMMAND);
                 }
             }
         }
@@ -118,19 +119,19 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         //TODO: Not Implemented yet
     }
 
-    public override void CacheWriter(Dictionary<string, string> data)
+    public override void CacheWriter(CacheData payload)
     {
-        foreach (var kvp in data)
-            InternalCacheWriter(kvp, RedisPrefixes.DATA);
+        foreach (var kvp in payload.Data)
+            InternalCacheWriter(kvp, payload.Prefix );
     }
 
-    private void InternalCacheWriter(KeyValuePair<string, string> kvp, RedisPrefixes prefix = RedisPrefixes.DATA)
+    private void InternalCacheWriter(KeyValuePair<string, string> kvp, CachePrefixes prefix = CachePrefixes.DATA)
     {
         try
         {
             if ( _connection.isConnected)
             {
-                if( prefix == RedisPrefixes.COMMAND )
+                if( prefix == CachePrefixes.COMMAND )
                     _logger?.LogDebug("Writing Value: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
                 else
                     _logger?.LogDebug("Writing Data: {Key} with data length: {Length}", kvp.Key, kvp.Value.Length);
@@ -144,12 +145,12 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         }
     }
 
-    public override List<KeyValuePair<string, string>> CacheReader(List<string> values) => InternalCacheReader(values , RedisPrefixes.DATA);
+    public override List<KeyValuePair<string, string>> CacheReader(List<string> values) => InternalCacheReader(values , CachePrefixes.DATA);
     public override IEnumerable<CommandItem> CommandReader( BroadcastPluginSDK.Classes.CommandStatus status)
     {
         _logger?.LogDebug("Starting CommandReader for status: {Status}", status);
 
-        foreach (var kvp in Read(RedisPrefixes.COMMAND))
+        foreach (var kvp in Read(CachePrefixes.COMMAND))
         {
             CommandItem item ;
 
@@ -158,7 +159,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             if( string.IsNullOrWhiteSpace(kvp.Value) )
             {
                 _logger?.LogWarning("Empty or whitespace value for key {Key}, deleting from Redis.", kvp.Key);
-                _connection.Delete(kvp.Key , RedisPrefixes.COMMAND );
+                _connection.Delete(kvp.Key , CachePrefixes.COMMAND );
                 continue;
             }
 
@@ -171,7 +172,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             catch (JsonException jsonEx)
             { 
                 _logger?.LogError(jsonEx, "JSON deserialization error for key {Key}", kvp.Key );
-                _connection.Delete(kvp.Key , RedisPrefixes.COMMAND );
+                _connection.Delete(kvp.Key , CachePrefixes.COMMAND );
                 continue;
             }
             catch (Exception ex)
@@ -198,21 +199,21 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
         _logger?.LogDebug("Serializing command: {Key}", data.Key);
         _logger?.LogDebug("Serialized JSON: {Json}", json);
-        InternalCacheWriter(new KeyValuePair<string, string>( data.Key, json ), RedisPrefixes.COMMAND);
+        InternalCacheWriter(new KeyValuePair<string, string>( data.Key, json ), CachePrefixes.COMMAND);
         _logger?.LogInformation("CommandWriter completed for command: {Key} {status}", data.Key , data.Status.ToString() );
     }
-    private List<KeyValuePair<string, string>> InternalCacheReader(List<string> values, RedisPrefixes prefix = RedisPrefixes.DATA)
+    private List<KeyValuePair<string, string>> InternalCacheReader(List<string> values, CachePrefixes prefix = CachePrefixes.DATA)
     {
             if (values.Count == 0) return Read(prefix).ToList();
             return Read(values, prefix).ToList();
     }
 
-    public IEnumerable<KeyValuePair<string, string>> Read(List<string> values , RedisPrefixes prefix = RedisPrefixes.DATA)
+    public IEnumerable<KeyValuePair<string, string>> Read(List<string> values , CachePrefixes prefix = CachePrefixes.DATA)
     {
             foreach (var value in values) yield return ReadValue(value , prefix);
     }
 
-    public IEnumerable<KeyValuePair<string, string>> Read( RedisPrefixes prefix = RedisPrefixes.DATA)
+    public IEnumerable<KeyValuePair<string, string>> Read(CachePrefixes prefix = CachePrefixes.DATA)
     {
             if (_connection.isConnected)
             {
@@ -223,7 +224,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
                 yield return ReadValue( key , prefix);
     }
 
-    public KeyValuePair<string, string> ReadValue(string value, RedisPrefixes prefix = RedisPrefixes.DATA)
+    public KeyValuePair<string, string> ReadValue(string value, CachePrefixes prefix = CachePrefixes.DATA)
     {
             if (_connection.isConnected)
             {

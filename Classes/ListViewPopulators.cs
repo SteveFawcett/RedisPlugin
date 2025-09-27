@@ -1,4 +1,5 @@
 ﻿using BroadcastPluginSDK.Classes;
+using BroadcastPluginSDK.Interfaces;
 using System.Text.Json;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -15,7 +16,7 @@ namespace RedisPlugin.Classes
     internal static class ListViewPopulators
     {
         static populatorType _type = populatorType.Default;
-        static public void Raw( ListView listView, Connection items , RedisPrefixes? prefix)
+        static public void Raw( ListView listView, Connection items , CachePrefixes? prefix)
         {
             if (_type != populatorType.Raw)
             {
@@ -42,7 +43,7 @@ namespace RedisPlugin.Classes
             ResizeColumns(listView);
         }
 
-        static public void Command(ListView listView, Connection items, RedisPrefixes prefix)
+        static public void Command(ListView listView, Connection items, CachePrefixes prefix)
         {
             if (_type != populatorType.Command)
             {
@@ -82,7 +83,7 @@ namespace RedisPlugin.Classes
         }
 
 
-        static public void Simple(ListView listView, Connection items, RedisPrefixes prefix)
+        static public void Simple(ListView listView, Connection items, CachePrefixes prefix)
         {
             if (_type != populatorType.Simple)
             {
