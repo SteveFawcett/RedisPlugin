@@ -21,7 +21,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
     private static Connection _connection;
 #pragma warning restore CS8618
 
-    public static CachePage? _infoPage;
+    private static CachePage? _infoPage;
     private bool _disposed = false;
 
     public RedisCache() : base() { }
@@ -37,7 +37,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         var port = config.GetValue<int>("port");
         var server = config.GetValue<string>("server") ?? string.Empty;
         double ReconnectRate = config.GetValue<int?>("ReconnectRate") ?? 1000;
-        double JobScanRate = config.GetValue<int?>("JobScanRate") ?? 10000;
+        double JobScanRate = config.GetValue<int?>("JobScanRate") ?? 1000;
 
         _connection = new( logger, config);
         _connection.OnConnectionChange += Connection_OnConnectionChange;
@@ -72,22 +72,15 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     private void JobScanner()
     {      
-        var cutoff = DateTime.UtcNow.AddMinutes(-10);
-
         if (_connection.isConnected == true)
         {
-            _logger?.LogDebug("Timer elapsed, checking for completed Jobs");
+            _logger?.LogDebug("Timer elapsed, checking for New Command Jobs");
 
-            foreach (var jobs in CommandReader(CommandStatus.Completed))
+            foreach (var job in CommandReader( CommandStatus.New ) )
             {
-                var completed = jobs.UpdatedAt ?? jobs.CreatedAt;
-
-                _logger?.LogInformation("Processing completed command: {Key} : {completed} < {cutoff}", jobs.Key, completed, cutoff);
-                if (completed < cutoff)
-                {
-                    _logger?.LogInformation("Deleting old completed command: {Key}", jobs.Key);
-                    _connection.Delete(jobs.Key, CachePrefixes.COMMAND);
-                }
+                job.Status = CommandStatus.Queued;
+                BroadcastJob( job );
+                CommandWriter( job );
             }
         }
     }
@@ -97,7 +90,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         SetState(isConnected);
     }
 
-    public void SetState( bool isConnected = false)
+    private void SetState( bool isConnected = false)
     {
         _infoPage?.UpdateInfoPage(_connection);
 
@@ -107,7 +100,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     }
 
-    public static CachePage LoadCachePage(ILogger<RedisCache> logger, IConfiguration configuration, Connection conn)
+    private static CachePage LoadCachePage(ILogger<RedisCache> logger, IConfiguration configuration, Connection conn)
     {
             _infoPage = new CachePage(logger, conn);
             return _infoPage;
@@ -145,52 +138,6 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         }
     }
 
-    public override List<KeyValuePair<string, string>> CacheReader(List<string> values) => InternalCacheReader(values , CachePrefixes.DATA);
-    public override IEnumerable<CommandItem> CommandReader( BroadcastPluginSDK.Classes.CommandStatus status)
-    {
-        _logger?.LogDebug("Starting CommandReader for status: {Status}", status);
-
-        foreach (var kvp in Read(CachePrefixes.COMMAND))
-        {
-            CommandItem item ;
-
-            _logger?.LogDebug("Deserializing command: {Key}", kvp.Key);
-
-            if( string.IsNullOrWhiteSpace(kvp.Value) )
-            {
-                _logger?.LogWarning("Empty or whitespace value for key {Key}, deleting from Redis.", kvp.Key);
-                _connection.Delete(kvp.Key , CachePrefixes.COMMAND );
-                continue;
-            }
-
-            try
-            {
-                item = JsonSerializer.Deserialize<CommandItem>(kvp.Value) ?? throw new JsonException("Deserialization returned null");
-
-                _logger?.LogDebug("Deserialized command: {Item}", item != null ? item.Key : "null");
-            }
-            catch (JsonException jsonEx)
-            { 
-                _logger?.LogError(jsonEx, "JSON deserialization error for key {Key}", kvp.Key );
-                _connection.Delete(kvp.Key , CachePrefixes.COMMAND );
-                continue;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Unexpected error deserializing key {Key}:", kvp.Key);
-                continue;
-            }
-
-            if (item != null && item.Status == status)
-            {
-                _logger?.LogInformation("Adding command to list: {Item} {command}", item.Key, item.Value.ToString());
-
-                yield return item;
-            }
-        }
-
-        yield break;
-    }
     public override void CommandWriter(CommandItem data)
     {
         _logger?.LogDebug("Starting CommandWriter for command: {Key}", data.Key);
@@ -259,4 +206,51 @@ public class RedisCache : BroadcastCacheBase, IDisposable
         }
         _disposed = true;
     }
+
+    private IEnumerable<CommandItem> CommandReader(CommandStatus status)
+    {
+        _logger?.LogDebug("Starting CommandReader for status: {Status}", status);
+
+        foreach (var kvp in Read(CachePrefixes.COMMAND))
+        {
+            CommandItem item;
+
+            _logger?.LogDebug("Deserializing command: {Key}", kvp.Key);
+
+            if (string.IsNullOrWhiteSpace(kvp.Value))
+            {
+                _logger?.LogWarning("Empty or whitespace value for key {Key}, deleting from Redis.", kvp.Key);
+                _connection.Delete(kvp.Key, CachePrefixes.COMMAND);
+                continue;
+            }
+
+            try
+            {
+                item = JsonSerializer.Deserialize<CommandItem>(kvp.Value) ?? throw new JsonException("Deserialization returned null");
+
+                _logger?.LogDebug("Deserialized command: {Item}", item != null ? item.Key : "null");
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger?.LogError(jsonEx, "JSON deserialization error for key {Key}", kvp.Key);
+                _connection.Delete(kvp.Key, CachePrefixes.COMMAND);
+                continue;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Unexpected error deserializing key {Key}:", kvp.Key);
+                continue;
+            }
+
+            if (item != null && item.Status == status)
+            {
+                _logger?.LogInformation("Adding command to list: {Item} {command}", item.Key, item.Value.ToString());
+
+                yield return item;
+            }
+        }
+
+        yield break;
+    }
+
 }

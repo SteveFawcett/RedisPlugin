@@ -67,13 +67,10 @@
     <PackageReference Include="StackExchange.Redis" Version="2.9.17" />
   </ItemGroup>
 
-	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
+	<ItemGroup>
 		<ProjectReference Include="..\BroadcastPluginSDK\BroadcastPluginSDK.csproj" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(Configuration)' == 'Release'">
-		<PackageReference Include="BroadcastPluginSDK" Version="1.2.0" />
-	</ItemGroup>
 
 	<ItemGroup>
 	  <Compile Update="Forms\CachePage.cs">

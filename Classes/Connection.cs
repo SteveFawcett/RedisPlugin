@@ -312,7 +312,7 @@ public class Connection : IDisposable
             if ( string.IsNullOrEmpty(value))
                 continue;
             
-            yield return new KeyValuePair<string, string>(key, value);
+            yield return new KeyValuePair<string, string>(key!, value);
         }
 
         yield break;
