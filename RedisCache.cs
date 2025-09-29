@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace RedisPlugin;
 
-public class RedisCache : BroadcastCacheBase, IDisposable
+public class RedisCache : BroadcastCacheBase, IProvider,  IDisposable
 {
     private const string STANZA = "Redis";
     private static Image s_icon = Resources.red;
@@ -23,6 +23,9 @@ public class RedisCache : BroadcastCacheBase, IDisposable
 
     private static CachePage? _infoPage;
     private bool _disposed = false;
+
+    public event EventHandler<CacheData>? DataReceived;
+    public event EventHandler<CommandItem>? CommandReceived;
 
     public RedisCache() : base() { }
 
@@ -79,7 +82,7 @@ public class RedisCache : BroadcastCacheBase, IDisposable
             foreach (var job in CommandReader( CommandStatus.New ) )
             {
                 job.Status = CommandStatus.Queued;
-                BroadcastJob( job );
+                CommandReceived?.Invoke(this, job);
                 CommandWriter( job );
             }
         }
